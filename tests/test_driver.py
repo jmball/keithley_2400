@@ -135,6 +135,29 @@ def test_methods_require_connection():
         meter.read()
 
 
+@pytest.mark.parametrize("fail", [False, True])
+def test_context_closes_session_on_normal_and_exceptional_exit(fail):
+    instrument = FakeInstrument()
+    meter = keithley2400()
+
+    def use_instrument():
+        with meter as entered:
+            assert entered is meter
+            assert not meter.connected
+            meter.connect("GPIB0::24::INSTR", resource_manager=FakeManager(instrument))
+            if fail:
+                raise ValueError("measurement failed")
+
+    if fail:
+        with pytest.raises(ValueError, match="measurement failed"):
+            use_instrument()
+    else:
+        use_instrument()
+
+    assert instrument.closed
+    assert not meter.connected
+
+
 def test_readback_and_error_queue_use_documented_responses():
     instrument = FakeInstrument()
     instrument.responses.update({

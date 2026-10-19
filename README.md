@@ -2,6 +2,8 @@
 
 A small PyVISA driver for common source-measure work on the Keithley 2400. It exposes configuration properties, a single-reading `read()` method, identification, and basic status helpers. The public class is `keithley2400` (lowercase); `Measurement` is the immutable result type.
 
+You can use `with keithley2400() as meter:` and call `connect()` inside the block. Exiting the block disconnects the session, including when an exception occurs. Output control remains explicit: turn the output off in a `finally` block when needed, as below.
+
 ```python
 import pyvisa
 from keithley2400 import keithley2400

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import math
+from types import TracebackType
 from typing import Any
 
 import pyvisa
@@ -25,6 +26,19 @@ class keithley2400:
 
     def __init__(self) -> None:
         self._instrument: pyvisa.resources.MessageBasedResource | None = None
+
+    def __enter__(self) -> keithley2400:
+        """Return this instance; connect explicitly inside the context."""
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        """Disconnect on exit; output control remains explicit."""
+        self.disconnect()
 
     def connect(
         self,
