@@ -8,6 +8,7 @@ from types import TracebackType
 from typing import Any
 
 import pyvisa
+from pyvisa.resources import SerialInstrument
 
 
 @dataclass(frozen=True)
@@ -47,15 +48,21 @@ class keithley2400:
         resource_manager: pyvisa.ResourceManager | None = None,
         **resource_kwargs: Any,
     ) -> None:
-        """Open a resource and set a known, single-reading ASCII protocol."""
+        """Open a single-reading ASCII session; default writes to CR on serial, LF otherwise.
+
+        Pass read_termination to match the instrument's serial response setting.
+        Resource keyword arguments override the transport defaults.
+        """
         if self._instrument is not None:
             raise RuntimeError("already connected")
         manager = resource_manager if resource_manager is not None else pyvisa.ResourceManager()
-        settings = {"encoding": "ascii", "read_termination": "\n", "write_termination": "\n"}
+        settings = {"encoding": "ascii", "read_termination": "\n"}
         settings.update(resource_kwargs)
         instrument = manager.open_resource(resource_name, **settings)
         self._instrument = instrument
         try:
+            if "write_termination" not in resource_kwargs:
+                instrument.write_termination = "\r" if isinstance(instrument, SerialInstrument) else "\n"
             self._write(":ABOR")
             self._write(":FORM:DATA ASC")
             self._write(":SOUR:CLE:AUTO OFF")

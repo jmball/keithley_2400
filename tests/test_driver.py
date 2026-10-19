@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from pyvisa.resources import SerialInstrument
 
 from keithley2400 import Measurement, keithley2400
 
@@ -31,16 +32,25 @@ class FakeManager:
         return self.instrument
 
 
+class FakeSerialInstrument(FakeInstrument, SerialInstrument):
+    _session = None
+
+    def write(self, command):
+        assert self.write_termination == "\r"
+        super().write(command)
+
+
 def test_connect_configures_single_ascii_read_and_forwards_transport_options():
-    instrument = FakeInstrument()
+    instrument = FakeSerialInstrument()
     manager = FakeManager(instrument)
     meter = keithley2400()
 
-    meter.connect("ASRL1::INSTR", resource_manager=manager, baud_rate=19200, write_termination="\r")
+    meter.connect("serial_alias", resource_manager=manager, baud_rate=19200, read_termination="\r\n")
 
     name, options = manager.calls[0]
-    assert name == "ASRL1::INSTR"
-    assert options == {"encoding": "ascii", "read_termination": "\n", "write_termination": "\r", "baud_rate": 19200}
+    assert name == "serial_alias"
+    assert options == {"encoding": "ascii", "read_termination": "\r\n", "baud_rate": 19200}
+    assert instrument.write_termination == "\r"
     assert instrument.writes == [
         ":ABOR",
         ":FORM:DATA ASC",
@@ -54,6 +64,17 @@ def test_connect_configures_single_ascii_read_and_forwards_transport_options():
     ]
     meter.disconnect()
     assert instrument.closed
+
+
+def test_gpib_uses_lf_before_initialization():
+    class GpibInstrument(FakeInstrument):
+        def write(self, command):
+            assert self.write_termination == "\n"
+            super().write(command)
+
+    meter = keithley2400()
+    meter.connect("GPIB0::24::INSTR", resource_manager=FakeManager(GpibInstrument()))
+    meter.disconnect()
 
 
 def test_read_parses_five_fixed_fields_and_preserves_sentinel_values():
