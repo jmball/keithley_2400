@@ -41,7 +41,7 @@ class FakeSerialInstrument(FakeInstrument, SerialInstrument):
         super().write(command)
 
 
-def test_connect_configures_single_ascii_read_and_forwards_transport_options():
+def test_connect_only_configures_communication_and_forwards_transport_options():
     instrument = FakeSerialInstrument()
     manager = FakeManager(instrument)
     meter = keithley2400()
@@ -52,6 +52,30 @@ def test_connect_configures_single_ascii_read_and_forwards_transport_options():
     assert name == "serial_alias"
     assert options == {"encoding": "ascii", "read_termination": "\r\n", "baud_rate": 19200}
     assert instrument.write_termination == "\r"
+    assert instrument.writes == []
+    meter.disconnect()
+    assert instrument.closed
+
+
+def test_gpib_connection_sets_lf_without_sending_commands():
+    instrument = FakeInstrument()
+    meter = keithley2400()
+    meter.connect("GPIB0::24::INSTR", resource_manager=FakeManager(instrument))
+
+    assert instrument.write_termination == "\n"
+    assert instrument.read_termination == "\n"
+    assert instrument.writes == []
+    meter.disconnect()
+
+
+def test_explicit_setup_configures_single_read_protocol():
+    instrument = FakeInstrument()
+    meter = keithley2400()
+    meter.connect("GPIB0::24::INSTR", resource_manager=FakeManager(instrument))
+
+    meter.abort()
+    meter.configure_single_read()
+
     assert instrument.writes == [
         ":ABOR",
         ":FORM:DATA ASC",
@@ -63,19 +87,6 @@ def test_connect_configures_single_ascii_read_and_forwards_transport_options():
         ":TRIG:COUN 1",
         ":TRIG:DEL 0",
     ]
-    meter.disconnect()
-    assert instrument.closed
-
-
-def test_gpib_uses_lf_before_initialization():
-    class GpibInstrument(FakeInstrument):
-        def write(self, command):
-            assert self.write_termination == "\n"
-            assert self.read_termination == "\n"
-            super().write(command)
-
-    meter = keithley2400()
-    meter.connect("GPIB0::24::INSTR", resource_manager=FakeManager(GpibInstrument()))
     meter.disconnect()
 
 
@@ -150,12 +161,15 @@ def test_read_rejects_non_five_field_response():
         meter.read()
 
 
-def test_initialization_failure_closes_open_instrument():
+def test_communication_configuration_failure_closes_open_instrument():
     class BrokenInstrument(FakeInstrument):
-        def write(self, command):
-            super().write(command)
-            if command == ":FORM:DATA ASC":
-                raise OSError("transport failed")
+        @property
+        def write_termination(self):
+            return None
+
+        @write_termination.setter
+        def write_termination(self, value):
+            raise OSError("transport failed")
 
     instrument = BrokenInstrument()
     meter = keithley2400()
@@ -247,6 +261,9 @@ def test_tcp_socket_preserves_adapter_terminations_and_reads_measurement():
             read_termination="\r\n",
             write_termination="\r",
         )
+        assert instrument.writes == []
+        meter.abort()
+        meter.configure_single_read()
         assert meter.read() == Measurement(1.0, 0.002, 9.91e37, 0.5, 0)
 
     assert instrument.closed

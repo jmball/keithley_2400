@@ -48,7 +48,7 @@ class keithley2400:
         resource_manager: pyvisa.ResourceManager | None = None,
         **resource_kwargs: Any,
     ) -> None:
-        """Open a single-reading ASCII session.
+        """Open a VISA session and configure communication only.
 
         Serial connections require an explicit, nonempty read_termination matching
         the instrument's response setting. GPIB reads default to LF.
@@ -74,8 +74,6 @@ class keithley2400:
                 instrument.read_termination = "\n"
             if "write_termination" not in resource_kwargs:
                 instrument.write_termination = "\r" if serial else "\n"
-            self.abort()
-            self.configure_single_read()
         except BaseException:
             self._instrument = None
             try:
@@ -307,7 +305,7 @@ class keithley2400:
         self._write_bool(":SOUR:CLE:AUTO", enabled)
 
     def read(self) -> Measurement:
-        """Trigger one immediate measurement and return the five documented fields."""
+        """Trigger and return one reading after explicit configure_single_read() setup."""
         values = [float(part.strip()) for part in self._query(":READ?").split(",")]
         if len(values) != 5:
             raise ValueError(f"expected five READ? fields, received {len(values)}")

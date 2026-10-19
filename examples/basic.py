@@ -8,6 +8,8 @@ rm = pyvisa.ResourceManager()
 meter = keithley2400()
 meter.connect("GPIB0::24::INSTR", resource_manager=rm)
 try:
+    meter.abort()
+    meter.configure_single_read()
     meter.source_function = "VOLT"
     meter.source_range = 20
     meter.source_level = 1.0

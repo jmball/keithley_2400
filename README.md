@@ -13,6 +13,8 @@ meter = keithley2400()
 meter.connect("GPIB0::24::INSTR", resource_manager=rm)
 try:
     print(meter.identification)
+    meter.abort()
+    meter.configure_single_read()
     meter.source_function = "VOLT"
     meter.source_range = 20
     meter.source_level = 1.0
@@ -26,9 +28,11 @@ finally:
     meter.disconnect()
 ```
 
-`connect()` opens and owns the PyVISA instrument session; disconnect closes that session. A caller-supplied resource manager remains caller-owned. Connection aborts any pending trigger cycle, configures ASCII transfer, a fixed five-field `READ?` response (`VOLT,CURR,RES,TIME,STAT`), one immediate arm/trigger, zero trigger delay, and disables automatic output on/off. It does not reset the instrument, change the source function or level, or enable output. Select `source_function` before taking readings to establish fixed sourcing mode. Other settings, including sense functions, ranges, filtering and source delay, are inherited; configure those needed by your measurement. Output remains explicitly controlled by `output_enabled`. Setting `source_function` selects fixed mode for the chosen voltage or current source function. Multiple sense functions enable concurrent measurement.
+`connect()` opens the PyVISA instrument session and configures communication only. It sends no instrument commands and leaves measurement settings and running operations untouched. Disconnect closes the session; the resource manager remains open.
 
-Initialization uses `abort()` followed by `configure_single_read()`. These actions are also available to callers: abort a running operation before restoring the single-reading recipe. `auto_output_off` exposes the automatic output switching setting; the recipe sets it to `False`. Format and trigger configuration stay together because `read()` requires that fixed response layout and one reading per call.
+Before measuring, explicitly call `abort()` to stop any running operation, then `configure_single_read()`. This configures ASCII transfer, a five-field response (`VOLT,CURR,RES,TIME,STAT`), one immediate arm/trigger, zero trigger delay, and disables automatic output on/off through `auto_output_off = False`. `read()` requires this setup and does not configure the instrument itself.
+
+Select `source_function` to establish fixed voltage or current sourcing. Configure source level, compliance and sense functions before enabling output. Other settings, including ranges, filtering and source delay, are inherited. Multiple sense functions enable concurrent measurement.
 
 Write termination defaults to LF for GPIB and CR for RS-232, selected from the opened VISA resource type (including when connecting by alias). GPIB read termination defaults to LF. RS-232 requires an explicit, nonempty `read_termination` matching the instrument’s front-panel setting (CR, CR+LF, LF, or LF+CR); if omitted, the session is closed and `connect()` raises `ValueError` before sending commands. Set serial baud rate, parity, and flow control through `connect()` kwargs to match the instrument too. Explicit transport kwargs override the defaults. For GPIB, PyVISA normally also asserts EOI with the message terminator.
 
