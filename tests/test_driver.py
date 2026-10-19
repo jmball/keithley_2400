@@ -107,7 +107,7 @@ def test_read_parses_five_fixed_fields_and_preserves_sentinel_values():
     instrument = FakeInstrument()
     instrument.responses[":READ?"] = "+9.91E37, -2.0E-3, +9.9E37, 1.25, 64\n"
     meter = keithley2400()
-    meter._instrument = instrument
+    meter._instr = instrument
 
     assert meter.read() == Measurement(9.91e37, -0.002, 9.9e37, 1.25, 64)
 
@@ -117,7 +117,7 @@ def test_configuration_properties_use_documented_scpi_commands():
     instrument.responses[":SOUR:FUNC?"] = "VOLT"
     instrument.responses[":OUTP?"] = "1"
     meter = keithley2400()
-    meter._instrument = instrument
+    meter._instr = instrument
 
     meter.source_function = "VOLT"
     meter.source_level = 2.5
@@ -140,7 +140,7 @@ def test_configuration_properties_use_documented_scpi_commands():
 def test_invalid_settings_fail_before_writing():
     instrument = FakeInstrument()
     meter = keithley2400()
-    meter._instrument = instrument
+    meter._instr = instrument
 
     with pytest.raises(ValueError):
         meter.nplc = 11
@@ -155,7 +155,7 @@ def test_read_rejects_non_five_field_response():
     instrument = FakeInstrument()
     instrument.responses[":READ?"] = "1,2,3"
     meter = keithley2400()
-    meter._instrument = instrument
+    meter._instr = instrument
 
     with pytest.raises(ValueError, match="five READ"):
         meter.read()
@@ -183,13 +183,15 @@ def test_methods_require_connection():
     meter = keithley2400()
     with pytest.raises(RuntimeError, match="not connected"):
         meter.read()
+    with pytest.raises(RuntimeError, match="not connected"):
+        meter.output_enabled = True
 
 
 def test_abort_and_automatic_output_control_use_documented_commands():
     instrument = FakeInstrument()
     instrument.responses[":SOUR:CLE:AUTO?"] = "1"
     meter = keithley2400()
-    meter._instrument = instrument
+    meter._instr = instrument
 
     assert meter.auto_output_off is True
     meter.auto_output_off = False
@@ -230,7 +232,7 @@ def test_readback_and_error_queue_use_documented_responses():
         ":SYST:ERR?": '-222,"Parameter data out of range"',
     })
     meter = keithley2400()
-    meter._instrument = instrument
+    meter._instr = instrument
 
     assert meter.sense_functions == ("VOLT", "CURR")
     assert meter.current_compliance == 0.01

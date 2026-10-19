@@ -26,7 +26,7 @@ class keithley2400:
     """Control a Keithley 2400 through a PyVISA message-based resource."""
 
     def __init__(self) -> None:
-        self._instrument: pyvisa.resources.MessageBasedResource | None = None
+        self._instr: pyvisa.resources.MessageBasedResource | None = None
 
     def __enter__(self) -> keithley2400:
         """Return this instance; connect explicitly inside the context."""
@@ -56,13 +56,13 @@ class keithley2400:
         Serial writes default to CR; GPIB writes default to LF.
         Resource keyword arguments override the transport defaults.
         """
-        if self._instrument is not None:
+        if self._instr is not None:
             raise RuntimeError("already connected")
         manager = resource_manager if resource_manager is not None else pyvisa.ResourceManager()
         settings = {"encoding": "ascii"}
         settings.update(resource_kwargs)
         instrument = manager.open_resource(resource_name, **settings)
-        self._instrument = instrument
+        self._instr = instrument
         try:
             if isinstance(instrument, TCPIPSocket):
                 if not resource_kwargs.get("read_termination") or not resource_kwargs.get("write_termination"):
@@ -75,7 +75,7 @@ class keithley2400:
             if "write_termination" not in resource_kwargs:
                 instrument.write_termination = "\r" if serial else "\n"
         except BaseException:
-            self._instrument = None
+            self._instr = None
             try:
                 instrument.close()
             except Exception:
@@ -84,24 +84,24 @@ class keithley2400:
 
     @property
     def connected(self) -> bool:
-        return self._instrument is not None
+        return self._instr is not None
 
     def disconnect(self) -> None:
         """Close the instrument session, if connected."""
-        instrument, self._instrument = self._instrument, None
+        instrument, self._instr = self._instr, None
         if instrument is not None:
             instrument.close()
 
-    def _require_instrument(self) -> pyvisa.resources.MessageBasedResource:
-        if self._instrument is None:
-            raise RuntimeError("not connected")
-        return self._instrument
-
     def _write(self, command: str) -> None:
-        self._require_instrument().write(command)
+        if self._instr is not None:
+            self._instr.write(command)
+        else:
+            raise RuntimeError("not connected")
 
     def _query(self, command: str) -> str:
-        return self._require_instrument().query(command).strip()
+        if self._instr is not None:
+            return self._instr.query(command).strip()
+        raise RuntimeError("not connected")
 
     def _query_float(self, command: str) -> float:
         return float(self._query(command))
