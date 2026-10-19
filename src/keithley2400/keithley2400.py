@@ -50,19 +50,25 @@ class keithley2400:
     ) -> None:
         """Open a single-reading ASCII session; default writes to CR on serial, LF otherwise.
 
-        Pass read_termination to match the instrument's serial response setting.
+        Serial connections require an explicit, nonempty read_termination matching
+        the instrument's response setting. GPIB reads default to LF.
         Resource keyword arguments override the transport defaults.
         """
         if self._instrument is not None:
             raise RuntimeError("already connected")
         manager = resource_manager if resource_manager is not None else pyvisa.ResourceManager()
-        settings = {"encoding": "ascii", "read_termination": "\n"}
+        settings = {"encoding": "ascii"}
         settings.update(resource_kwargs)
         instrument = manager.open_resource(resource_name, **settings)
         self._instrument = instrument
         try:
+            serial = isinstance(instrument, SerialInstrument)
+            if serial and not resource_kwargs.get("read_termination"):
+                raise ValueError("serial connections require read_termination")
+            if not serial and "read_termination" not in resource_kwargs:
+                instrument.read_termination = "\n"
             if "write_termination" not in resource_kwargs:
-                instrument.write_termination = "\r" if isinstance(instrument, SerialInstrument) else "\n"
+                instrument.write_termination = "\r" if serial else "\n"
             self._write(":ABOR")
             self._write(":FORM:DATA ASC")
             self._write(":SOUR:CLE:AUTO OFF")

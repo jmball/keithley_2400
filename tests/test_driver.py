@@ -70,11 +70,25 @@ def test_gpib_uses_lf_before_initialization():
     class GpibInstrument(FakeInstrument):
         def write(self, command):
             assert self.write_termination == "\n"
+            assert self.read_termination == "\n"
             super().write(command)
 
     meter = keithley2400()
     meter.connect("GPIB0::24::INSTR", resource_manager=FakeManager(GpibInstrument()))
     meter.disconnect()
+
+
+@pytest.mark.parametrize("options", [{}, {"read_termination": None}, {"read_termination": ""}])
+def test_serial_requires_read_termination_before_sending_commands(options):
+    instrument = FakeSerialInstrument()
+    meter = keithley2400()
+
+    with pytest.raises(ValueError, match="serial connections require read_termination"):
+        meter.connect("serial_alias", resource_manager=FakeManager(instrument), **options)
+
+    assert instrument.writes == []
+    assert instrument.closed
+    assert not meter.connected
 
 
 def test_read_parses_five_fixed_fields_and_preserves_sentinel_values():
