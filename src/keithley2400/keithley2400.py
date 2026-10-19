@@ -74,15 +74,8 @@ class keithley2400:
                 instrument.read_termination = "\n"
             if "write_termination" not in resource_kwargs:
                 instrument.write_termination = "\r" if serial else "\n"
-            self._write(":ABOR")
-            self._write(":FORM:DATA ASC")
-            self._write(":SOUR:CLE:AUTO OFF")
-            self._write(":FORM:ELEM VOLT,CURR,RES,TIME,STAT")
-            self._write(":ARM:SOUR IMM")
-            self._write(":ARM:COUN 1")
-            self._write(":TRIG:SOUR IMM")
-            self._write(":TRIG:COUN 1")
-            self._write(":TRIG:DEL 0")
+            self.abort()
+            self.configure_single_read()
         except BaseException:
             self._instrument = None
             try:
@@ -118,6 +111,12 @@ class keithley2400:
     def _query_bool(self, command: str) -> bool:
         return bool(int(self._query(command)))
 
+    def _write_float(self, command: str, value: float) -> None:
+        self._write(f"{command} {value:.12g}")
+
+    def _write_bool(self, command: str, enabled: bool) -> None:
+        self._write(f"{command} {'ON' if enabled else 'OFF'}")
+
     @property
     def identification(self) -> str:
         """Return the read-only *IDN? response."""
@@ -129,7 +128,7 @@ class keithley2400:
 
     @output_enabled.setter
     def output_enabled(self, enabled: bool) -> None:
-        self._write(f":OUTP {'ON' if enabled else 'OFF'}")
+        self._write_bool(":OUTP", enabled)
 
     @property
     def source_function(self) -> str:
@@ -154,7 +153,7 @@ class keithley2400:
         if not math.isfinite(level):
             raise ValueError("source level must be finite")
         function = self.source_function
-        self._write(f":SOUR:{function}:LEV {level:.12g}")
+        self._write_float(f":SOUR:{function}:LEV", level)
 
     @property
     def source_range(self) -> float:
@@ -166,7 +165,7 @@ class keithley2400:
     def source_range(self, value: float) -> None:
         self._positive_finite(value)
         function = self.source_function
-        self._write(f":SOUR:{function}:RANG {value:.12g}")
+        self._write_float(f":SOUR:{function}:RANG", value)
 
     @property
     def sense_functions(self) -> tuple[str, ...]:
@@ -185,7 +184,7 @@ class keithley2400:
         normalized = tuple(self._function(function) for function in functions)
         if not normalized or len(set(normalized)) != len(normalized):
             raise ValueError("sense_functions must contain unique functions")
-        self._write(f":SENS:FUNC:CONC {'ON' if len(normalized) > 1 else 'OFF'}")
+        self._write_bool(":SENS:FUNC:CONC", len(normalized) > 1)
         self._write(":SENS:FUNC:OFF:ALL")
         for function in normalized:
             self._write(f':SENS:FUNC:ON "{function}"')
@@ -198,7 +197,7 @@ class keithley2400:
     @current_compliance.setter
     def current_compliance(self, value: float) -> None:
         self._positive_finite(value)
-        self._write(f":SENS:CURR:PROT {value:.12g}")
+        self._write_float(":SENS:CURR:PROT", value)
 
     @property
     def voltage_compliance(self) -> float:
@@ -208,7 +207,7 @@ class keithley2400:
     @voltage_compliance.setter
     def voltage_compliance(self, value: float) -> None:
         self._positive_finite(value)
-        self._write(f":SENS:VOLT:PROT {value:.12g}")
+        self._write_float(":SENS:VOLT:PROT", value)
 
     @property
     def nplc(self) -> float:
@@ -220,7 +219,7 @@ class keithley2400:
         self._positive_finite(value)
         if not 0.01 <= value <= 10:
             raise ValueError("NPLC must be between 0.01 and 10")
-        self._write(f":SENS:VOLT:NPLC {value:.12g}")
+        self._write_float(":SENS:VOLT:NPLC", value)
 
     @property
     def voltage_auto_range(self) -> bool:
@@ -228,7 +227,7 @@ class keithley2400:
 
     @voltage_auto_range.setter
     def voltage_auto_range(self, enabled: bool) -> None:
-        self._write(f":SENS:VOLT:RANG:AUTO {'ON' if enabled else 'OFF'}")
+        self._write_bool(":SENS:VOLT:RANG:AUTO", enabled)
 
     @property
     def current_auto_range(self) -> bool:
@@ -236,7 +235,7 @@ class keithley2400:
 
     @current_auto_range.setter
     def current_auto_range(self, enabled: bool) -> None:
-        self._write(f":SENS:CURR:RANG:AUTO {'ON' if enabled else 'OFF'}")
+        self._write_bool(":SENS:CURR:RANG:AUTO", enabled)
 
     @property
     def voltage_range(self) -> float:
@@ -246,7 +245,7 @@ class keithley2400:
     @voltage_range.setter
     def voltage_range(self, value: float) -> None:
         self._positive_finite(value)
-        self._write(f":SENS:VOLT:RANG {value:.12g}")
+        self._write_float(":SENS:VOLT:RANG", value)
 
     @property
     def current_range(self) -> float:
@@ -256,7 +255,7 @@ class keithley2400:
     @current_range.setter
     def current_range(self, value: float) -> None:
         self._positive_finite(value)
-        self._write(f":SENS:CURR:RANG {value:.12g}")
+        self._write_float(":SENS:CURR:RANG", value)
 
     @property
     def remote_sense(self) -> bool:
@@ -265,7 +264,7 @@ class keithley2400:
 
     @remote_sense.setter
     def remote_sense(self, enabled: bool) -> None:
-        self._write(f":SYST:RSEN {'ON' if enabled else 'OFF'}")
+        self._write_bool(":SYST:RSEN", enabled)
 
     @property
     def terminals(self) -> str:
@@ -278,6 +277,34 @@ class keithley2400:
         if value not in {"FRONT", "REAR"}:
             raise ValueError("terminals must be 'front' or 'rear'")
         self._write(f":ROUT:TERM {value}")
+
+    def abort(self) -> None:
+        """Abort the current operation and return the trigger system to idle."""
+        self._write(":ABOR")
+
+    def configure_single_read(self) -> None:
+        """Configure the ASCII format and immediate trigger recipe used by read().
+
+        Call abort() first if an operation is running. This disables automatic
+        output on/off; enable output explicitly before reading.
+        """
+        self._write(":FORM:DATA ASC")
+        self.auto_output_off = False
+        self._write(":FORM:ELEM VOLT,CURR,RES,TIME,STAT")
+        self._write(":ARM:SOUR IMM")
+        self._write(":ARM:COUN 1")
+        self._write(":TRIG:SOUR IMM")
+        self._write(":TRIG:COUN 1")
+        self._write_float(":TRIG:DEL", 0.0)
+
+    @property
+    def auto_output_off(self) -> bool:
+        """Whether each source-measure cycle automatically switches the output."""
+        return self._query_bool(":SOUR:CLE:AUTO?")
+
+    @auto_output_off.setter
+    def auto_output_off(self, enabled: bool) -> None:
+        self._write_bool(":SOUR:CLE:AUTO", enabled)
 
     def read(self) -> Measurement:
         """Trigger one immediate measurement and return the five documented fields."""

@@ -171,6 +171,19 @@ def test_methods_require_connection():
         meter.read()
 
 
+def test_abort_and_automatic_output_control_use_documented_commands():
+    instrument = FakeInstrument()
+    instrument.responses[":SOUR:CLE:AUTO?"] = "1"
+    meter = keithley2400()
+    meter._instrument = instrument
+
+    assert meter.auto_output_off is True
+    meter.auto_output_off = False
+    meter.abort()
+
+    assert instrument.writes == [":SOUR:CLE:AUTO OFF", ":ABOR"]
+
+
 @pytest.mark.parametrize("fail", [False, True])
 def test_context_closes_session_on_normal_and_exceptional_exit(fail):
     instrument = FakeInstrument()
