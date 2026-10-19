@@ -8,7 +8,7 @@ from types import TracebackType
 from typing import Any
 
 import pyvisa
-from pyvisa.resources import SerialInstrument
+from pyvisa.resources import SerialInstrument, TCPIPSocket
 
 
 @dataclass(frozen=True)
@@ -48,10 +48,12 @@ class keithley2400:
         resource_manager: pyvisa.ResourceManager | None = None,
         **resource_kwargs: Any,
     ) -> None:
-        """Open a single-reading ASCII session; default writes to CR on serial, LF otherwise.
+        """Open a single-reading ASCII session.
 
         Serial connections require an explicit, nonempty read_termination matching
         the instrument's response setting. GPIB reads default to LF.
+        TCP sockets require explicit, nonempty read and write terminations.
+        Serial writes default to CR; GPIB writes default to LF.
         Resource keyword arguments override the transport defaults.
         """
         if self._instrument is not None:
@@ -62,6 +64,9 @@ class keithley2400:
         instrument = manager.open_resource(resource_name, **settings)
         self._instrument = instrument
         try:
+            if isinstance(instrument, TCPIPSocket):
+                if not resource_kwargs.get("read_termination") or not resource_kwargs.get("write_termination"):
+                    raise ValueError("TCP sockets require read_termination and write_termination")
             serial = isinstance(instrument, SerialInstrument)
             if serial and not resource_kwargs.get("read_termination"):
                 raise ValueError("serial connections require read_termination")

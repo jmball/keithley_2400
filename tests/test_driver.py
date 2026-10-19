@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from pyvisa.resources import SerialInstrument
+from pyvisa.resources import SerialInstrument, TCPIPSocket
 
 from keithley2400 import Measurement, keithley2400
 
@@ -29,6 +29,7 @@ class FakeManager:
 
     def open_resource(self, name, **kwargs):
         self.calls.append((name, kwargs))
+        self.instrument.__dict__.update(kwargs)
         return self.instrument
 
 
@@ -208,3 +209,48 @@ def test_readback_and_error_queue_use_documented_responses():
     assert meter.current_compliance == 0.01
     assert meter.remote_sense is False
     assert meter.read_error() == '-222,"Parameter data out of range"'
+
+
+class FakeSocketInstrument(FakeInstrument, TCPIPSocket):
+    _session = None
+    read_termination = None
+    write_termination = None
+
+    def write(self, command):
+        assert self.write_termination == "\r"
+        assert self.read_termination == "\r\n"
+        super().write(command)
+
+
+def test_tcp_socket_preserves_adapter_terminations_and_reads_measurement():
+    instrument = FakeSocketInstrument()
+    instrument.responses[":READ?"] = "1.0,0.002,9.91E37,0.5,0"
+    meter = keithley2400()
+
+    with meter:
+        meter.connect(
+            "adapter_alias",
+            resource_manager=FakeManager(instrument),
+            read_termination="\r\n",
+            write_termination="\r",
+        )
+        assert meter.read() == Measurement(1.0, 0.002, 9.91e37, 0.5, 0)
+
+    assert instrument.closed
+
+
+@pytest.mark.parametrize("options", [
+    {},
+    {"read_termination": "\r\n"},
+    {"write_termination": "\r"},
+])
+def test_tcp_socket_requires_both_terminations_before_sending_commands(options):
+    instrument = FakeSocketInstrument()
+    meter = keithley2400()
+
+    with pytest.raises(ValueError, match="TCP sockets require"):
+        meter.connect("adapter_alias", resource_manager=FakeManager(instrument), **options)
+
+    assert instrument.writes == []
+    assert instrument.closed
+    assert not meter.connected
