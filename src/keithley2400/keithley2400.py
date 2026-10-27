@@ -141,18 +141,15 @@ class keithley2400:
     def _write_bool(self, command: str, enabled: bool) -> None:
         self._write(f"{command} {('ON' if enabled else 'OFF')}")
 
-    def _read(self) -> str:
-        if self._instr is not None:
-            return self._instr.read().strip()
-        raise RuntimeError("not connected")
-
     def read_response(self) -> str:
         """Receive a pending ASCII response without issuing another command.
 
         After a timeout, first resolve the pending response or clear the VISA
         interface before querying instrument errors (manual Appendix B).
         """
-        return self._read()
+        if self._instr is not None:
+            return self._instr.read().strip()
+        raise RuntimeError("not connected")
 
     def _query_int(self, command: str) -> int:
         value = self._query(command)

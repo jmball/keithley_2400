@@ -213,6 +213,23 @@ def test_commands_require_connection():
         meter.read()
     with pytest.raises(RuntimeError, match="not connected"):
         meter.output_enabled = True
+    with pytest.raises(RuntimeError, match="not connected"):
+        meter.read_response()
+
+
+def test_read_response_receives_pending_data_without_sending_commands():
+    class PendingInstrument(FakeInstrument):
+        def read(
+            self, termination: str | None = None, encoding: str | None = None
+        ) -> str:
+            return "1.25\r\n"
+
+    instrument = PendingInstrument()
+    with keithley2400() as meter:
+        meter.connect("GPIB0::24::INSTR", resource_manager=FakeManager(instrument))
+        assert meter.read_response() == "1.25"
+
+    assert instrument.writes == instrument.queries == []
 
 
 def test_write_checks_error_queue_and_raises_raw_instrument_messages():
