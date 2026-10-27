@@ -6,7 +6,7 @@ import math
 import struct
 from collections.abc import Collection, Sequence
 from types import TracebackType
-from typing import Any, TypeVar
+from typing import Any
 
 import pyvisa
 from pyvisa.resources import (
@@ -15,8 +15,6 @@ from pyvisa.resources import (
     SerialInstrument,
     TCPIPSocket,
 )
-
-_T = TypeVar("_T", bound="keithley2400")
 
 
 class keithley2400:
@@ -32,7 +30,7 @@ class keithley2400:
         self._instr: pyvisa.resources.MessageBasedResource | None = None
         self.check_errors_after_write: bool = True
 
-    def __enter__(self: _T) -> _T:
+    def __enter__(self) -> keithley2400:
         """Return this instance; connect explicitly inside the context."""
         return self
 
