@@ -132,7 +132,8 @@ class keithley2400:
         self._write(f'{command} "{quoted}"')
 
     def _write_enum(self, command: str, value: str, choices: Collection[str]) -> None:
-        self._write(f"{command} {self._normalize_choice(value, choices)}")
+        self._verify_choice(value, choices)
+        self._write(f"{command} {value}")
 
     def _write_trigger_line(self, command: str, line: int) -> None:
         if line not in (1, 2, 3, 4):
@@ -143,14 +144,15 @@ class keithley2400:
         self, command: str, events: str | Sequence[str], allowed: Sequence[str]
     ) -> None:
         values = (events,) if isinstance(events, str) else tuple(events)
-        normalized = tuple((self._normalize_choice(event, allowed) for event in values))
+        for event in values:
+            self._verify_choice(event, allowed)
         if (
-            not normalized
-            or len(set(normalized)) != len(normalized)
-            or ("NONE" in normalized and len(normalized) != 1)
+            not values
+            or len(set(values)) != len(values)
+            or ("NONE" in values and len(values) != 1)
         ):
             raise ValueError("provide unique events; NONE must be used alone")
-        self._write(f"{command} {','.join(normalized)}")
+        self._write(f"{command} {','.join(values)}")
 
     # Query helpers
 
@@ -234,30 +236,19 @@ class keithley2400:
             raise ValueError("value must be positive and finite")
 
     @staticmethod
-    def _normalize_sense_function(function: str) -> str:
-        aliases = {
-            "VOLT": "VOLT",
-            "VOLTAGE": "VOLT",
-            "VOLT:DC": "VOLT",
-            "VOLTAGE:DC": "VOLT",
-            "CURR": "CURR",
-            "CURRENT": "CURR",
-            "CURR:DC": "CURR",
-            "CURRENT:DC": "CURR",
-            "RES": "RES",
-            "RESISTANCE": "RES",
-        }
-        value = function.strip().upper()
-        if value not in aliases:
+    def _verify_sense_function(function: str) -> None:
+        if function not in ("VOLT", "CURR", "RES"):
             raise ValueError("sense function must be VOLT, CURR, or RES")
-        return aliases[value]
 
     @staticmethod
-    def _normalize_choice(value: str, choices: Collection[str]) -> str:
-        normalized = value.strip().upper()
-        if normalized not in choices:
+    def _verify_source_function(function: str) -> None:
+        if function not in ("VOLT", "CURR", "MEM"):
+            raise ValueError("source function must be VOLT, CURR, or MEM")
+
+    @staticmethod
+    def _verify_choice(value: str, choices: Collection[str]) -> None:
+        if value not in choices:
             raise ValueError("value must be one of " + ", ".join(sorted(choices)))
-        return normalized
 
     def read_error(self) -> str:
         """Read and remove the oldest error, retaining the raw instrument text."""
@@ -777,15 +768,13 @@ class keithley2400:
         return self._query_data(":FETC?")
 
     def measure(self, function: str | None = None) -> tuple[float, ...]:
-        command = (
-            ":MEAS?"
-            if function is None
-            else f":MEAS:{self._normalize_sense_function(function)}?"
-        )
-        return self._query_data(command)
+        if function is not None:
+            self._verify_sense_function(function)
+        return self._query_data(":MEAS?" if function is None else f":MEAS:{function}?")
 
     def configure_measurement(self, function: str) -> None:
-        self._write(f":CONF:{self._normalize_sense_function(function)}")
+        self._verify_sense_function(function)
+        self._write(f":CONF:{function}")
 
     @property
     def configured_measurement(self) -> tuple[str, ...]:
@@ -803,7 +792,7 @@ class keithley2400:
     @staticmethod
     def _verify_range(value: float | str, low: float, high: float) -> None:
         if isinstance(value, str):
-            keithley2400._normalize_choice(
+            keithley2400._verify_choice(
                 value, ("MIN", "MINIMUM", "MAX", "MAXIMUM", "DEF", "DEFAULT")
             )
             return
@@ -888,18 +877,8 @@ class keithley2400:
 
     @source_function.setter
     def source_function(self, value: str) -> None:
-        value = value.upper().strip()
-        if value not in {"VOLT", "VOLTAGE", "CURR", "CURRENT", "MEM", "MEMORY"}:
-            raise ValueError("source function must be VOLT, CURR, or MEM")
-        normalized = {
-            "VOLT": "VOLT",
-            "VOLTAGE": "VOLT",
-            "CURR": "CURR",
-            "CURRENT": "CURR",
-            "MEM": "MEM",
-            "MEMORY": "MEM",
-        }[value]
-        self._write(f":SOUR:FUNC {normalized}")
+        self._verify_source_function(value)
+        self._write(f":SOUR:FUNC {value}")
 
     @property
     def source_level(self) -> float:
@@ -945,7 +924,7 @@ class keithley2400:
         raw = self._query(":SENS:FUNC?").replace('"', "")
         return tuple(
             (
-                self._normalize_sense_function(part)
+                part.strip().removesuffix(":DC")
                 for part in raw.split(",")
                 if part.strip()
             )
@@ -972,7 +951,7 @@ class keithley2400:
         raw = self._query(":SENS:FUNC:OFF?").replace('"', "")
         return tuple(
             (
-                self._normalize_sense_function(part)
+                part.strip().removesuffix(":DC")
                 for part in raw.split(",")
                 if part.strip()
             )
@@ -980,13 +959,13 @@ class keithley2400:
 
     def enable_sense_functions(self, functions: Sequence[str]) -> None:
         for value in functions:
-            function = self._normalize_sense_function(value)
-            self._write_str(":SENS:FUNC:ON", function)
+            self._verify_sense_function(value)
+            self._write_str(":SENS:FUNC:ON", value)
 
     def disable_sense_functions(self, functions: Sequence[str]) -> None:
         for value in functions:
-            function = self._normalize_sense_function(value)
-            self._write_str(":SENS:FUNC:OFF", function)
+            self._verify_sense_function(value)
+            self._write_str(":SENS:FUNC:OFF", value)
 
     def enable_all_sense_functions(self) -> None:
         self._write(":SENS:FUNC:ON:ALL")
@@ -995,8 +974,8 @@ class keithley2400:
         self._write(":SENS:FUNC:OFF:ALL")
 
     def sense_function_enabled(self, function: str) -> bool:
-        normalized = self._normalize_sense_function(function)
-        return self._query_bool(f':SENS:FUNC:STAT? "{normalized}"')
+        self._verify_sense_function(function)
+        return self._query_bool(f':SENS:FUNC:STAT? "{function}"')
 
     @property
     def sense_auto_range(self) -> bool:

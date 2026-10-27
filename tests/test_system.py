@@ -8,13 +8,13 @@ from tests.fakes import RecordingMeter
 def test_arm_trigger_and_trace_settings_use_manual_commands():
     meter = RecordingMeter({":ARM:COUN?": "3", ":TRIG:SOUR?": "TLINK"})
     meter.arm_count = 3
-    meter.arm_source = "timer"
-    meter.trigger_source = "tlink"
+    meter.arm_source = "TIMER"
+    meter.trigger_source = "TLINK"
     meter.trigger_delay = 0.25
     meter.trace_points = 20
-    meter.trace_feed = "sense"
-    meter.trace_control = "next"
-    meter.trace_timestamp_format = "delta"
+    meter.trace_feed = "SENSE"
+    meter.trace_control = "NEXT"
+    meter.trace_timestamp_format = "DELTA"
     assert meter.arm_count == 3
     assert meter.trigger_source == "TLINK"
     assert meter.writes == [
@@ -53,7 +53,7 @@ def test_read_fetch_measure_and_trace_keep_variable_data():
     )
     assert meter.read() == (1.0, 2.0, 3.0)
     assert meter.fetch() == (1.0, 2.0, 3.0)
-    assert meter.measure("voltage") == (1.0, 2.0, 3.0)
+    assert meter.measure("VOLT") == (1.0, 2.0, 3.0)
     assert meter.measure() == (1.0, 2.0, 3.0)
     assert meter.trace_data == (1.0, 2.0, 3.0)
     assert meter.queries[1::2] == [

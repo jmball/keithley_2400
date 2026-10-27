@@ -136,3 +136,27 @@ def test_sense_functions_readback_only_queries_enabled_functions():
     assert meter.sense_functions == ("VOLT", "CURR")
     assert meter.queries == [":SENS:FUNC?"]
     assert meter.writes == []
+
+
+def test_invalid_measurement_function_is_rejected_before_communication():
+    meter = RecordingMeter()
+    with pytest.raises(ValueError, match="sense function"):
+        meter.measure("MEM")
+    assert meter.queries == []
+    assert meter.writes == []
+
+
+def test_function_inputs_require_canonical_tokens():
+    meter = RecordingMeter()
+    with pytest.raises(ValueError, match="source function"):
+        meter.source_function = "voltage"
+    with pytest.raises(ValueError, match="sense function"):
+        meter.enable_sense_functions((" CURR ",))
+    assert meter.writes == []
+
+
+def test_enum_inputs_are_validated_without_normalization():
+    meter = RecordingMeter()
+    with pytest.raises(ValueError, match="value must be one of"):
+        meter.arm_source = " timer "
+    assert meter.writes == []
