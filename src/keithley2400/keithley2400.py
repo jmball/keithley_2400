@@ -104,6 +104,8 @@ class keithley2400:
         if instrument is not None:
             instrument.close()
 
+    # Write helpers
+
     def _write(self, command: str) -> None:
         if self._instr is not None:
             self._instr.write(command)
@@ -112,33 +114,53 @@ class keithley2400:
         else:
             raise RuntimeError("not connected")
 
-    def _query(self, command: str) -> str:
-        if self._instr is not None:
-            return self._instr.query(command).strip()
-        raise RuntimeError("not connected")
+    def _write_bool(self, command: str, enabled: bool) -> None:
+        self._write(f"{command} {('ON' if enabled else 'OFF')}")
 
-    def _query_float(self, command: str) -> float:
-        return float(self._query(command))
-
-    def _query_bool(self, command: str) -> bool:
-        return bool(int(self._query(command)))
+    def _write_int(self, command: str, value: int | str) -> None:
+        self._write(f"{command} {value}")
 
     def _write_float(self, command: str, value: float | str) -> None:
         parameter = value if isinstance(value, str) else f"{value:.12g}"
         self._write(f"{command} {parameter}")
 
-    def _write_bool(self, command: str, enabled: bool) -> None:
-        self._write(f"{command} {('ON' if enabled else 'OFF')}")
+    def _write_floats(self, command: str, values: Sequence[float]) -> None:
+        self._write(f"{command} " + ",".join((f"{value:.12g}" for value in values)))
 
-    def read_response(self) -> str:
-        """Receive a pending ASCII response without issuing another command.
+    def _write_str(self, command: str, value: str) -> None:
+        quoted = value.replace('"', '""')
+        self._write(f'{command} "{quoted}"')
 
-        After a timeout, first resolve the pending response or clear the VISA
-        interface before querying instrument errors (manual Appendix B).
-        """
+    def _write_enum(self, command: str, value: str, choices: Collection[str]) -> None:
+        self._write(f"{command} {self._normalize_choice(value, choices)}")
+
+    def _write_trigger_line(self, command: str, line: int) -> None:
+        if line not in (1, 2, 3, 4):
+            raise ValueError("trigger link line must be 1 through 4")
+        self._write_int(f":{command}", line)
+
+    def _write_event_list(
+        self, command: str, events: str | Sequence[str], allowed: Sequence[str]
+    ) -> None:
+        values = (events,) if isinstance(events, str) else tuple(events)
+        normalized = tuple((self._normalize_choice(event, allowed) for event in values))
+        if (
+            not normalized
+            or len(set(normalized)) != len(normalized)
+            or ("NONE" in normalized and len(normalized) != 1)
+        ):
+            raise ValueError("provide unique events; NONE must be used alone")
+        self._write(f"{command} {','.join(normalized)}")
+
+    # Query helpers
+
+    def _query(self, command: str) -> str:
         if self._instr is not None:
-            return self._instr.read().strip()
+            return self._instr.query(command).strip()
         raise RuntimeError("not connected")
+
+    def _query_bool(self, command: str) -> bool:
+        return bool(int(self._query(command)))
 
     def _query_int(self, command: str) -> int:
         value = self._query(command)
@@ -147,36 +169,11 @@ class keithley2400:
             return int(value[2:], base)
         return int(value)
 
+    def _query_float(self, command: str) -> float:
+        return float(self._query(command))
+
     def _query_floats(self, command: str) -> tuple[float, ...]:
         return tuple((float(value) for value in self._query(command).split(",")))
-
-    def _write_int(self, command: str, value: int | str) -> None:
-        self._write(f"{command} {value}")
-
-    def _write_str(self, command: str, value: str) -> None:
-        quoted = value.replace('"', '""')
-        self._write(f'{command} "{quoted}"')
-
-    def _write_floats(self, command: str, values: Sequence[float]) -> None:
-        self._write(f"{command} " + ",".join((f"{value:.12g}" for value in values)))
-
-    @property
-    def data_format(self) -> str:
-        """Reading transfer format: ASC, REAL,32, or SREAL (binary is GPIB only)."""
-        return self._query(":FORM:DATA?")
-
-    @data_format.setter
-    def data_format(self, value: str) -> None:
-        self._write(f":FORM:DATA {value}")
-
-    @property
-    def byte_order(self) -> str:
-        """Binary transfer byte order: NORM (big endian) or SWAP."""
-        return self._query(":FORM:BORD?")
-
-    @byte_order.setter
-    def byte_order(self, value: str) -> None:
-        self._write(f":FORM:BORD {value}")
 
     def _query_data(self, command: str) -> tuple[float, ...]:
         """Read the documented ASCII or GPIB #0 single-precision data block."""
@@ -202,6 +199,34 @@ class keithley2400:
         payload = block[2:-1]
         order = {"NORM": ">", "SWAP": "<"}[byte_order.upper()]
         return struct.unpack(f"{order}{len(payload) // 4}f", payload)
+
+    def read_response(self) -> str:
+        """Receive a pending ASCII response without issuing another command.
+
+        After a timeout, first resolve the pending response or clear the VISA
+        interface before querying instrument errors (manual Appendix B).
+        """
+        if self._instr is not None:
+            return self._instr.read().strip()
+        raise RuntimeError("not connected")
+
+    @property
+    def data_format(self) -> str:
+        """Reading transfer format: ASC, REAL,32, or SREAL (binary is GPIB only)."""
+        return self._query(":FORM:DATA?")
+
+    @data_format.setter
+    def data_format(self, value: str) -> None:
+        self._write(f":FORM:DATA {value}")
+
+    @property
+    def byte_order(self) -> str:
+        """Binary transfer byte order: NORM (big endian) or SWAP."""
+        return self._query(":FORM:BORD?")
+
+    @byte_order.setter
+    def byte_order(self, value: str) -> None:
+        self._write(f":FORM:BORD {value}")
 
     @staticmethod
     def _verify_positive_finite(value: float) -> None:
@@ -233,9 +258,6 @@ class keithley2400:
         if normalized not in choices:
             raise ValueError("value must be one of " + ", ".join(sorted(choices)))
         return normalized
-
-    def _write_enum(self, command: str, value: str, choices: Collection[str]) -> None:
-        self._write(f"{command} {self._normalize_choice(value, choices)}")
 
     def read_error(self) -> str:
         """Read and remove the oldest error, retaining the raw instrument text."""
@@ -788,11 +810,6 @@ class keithley2400:
         if not math.isfinite(value) or not low <= value <= high:
             raise ValueError("value must be finite and within the documented range")
 
-    def _write_trigger_line(self, command: str, line: int) -> None:
-        if line not in (1, 2, 3, 4):
-            raise ValueError("trigger link line must be 1 through 4")
-        self._write_int(f":{command}", line)
-
     @staticmethod
     def _tokens(value: str) -> tuple[str, ...]:
         return tuple(
@@ -802,19 +819,6 @@ class keithley2400:
                 if part.strip()
             )
         )
-
-    def _write_event_list(
-        self, command: str, events: str | Sequence[str], allowed: Sequence[str]
-    ) -> None:
-        values = (events,) if isinstance(events, str) else tuple(events)
-        normalized = tuple((self._normalize_choice(event, allowed) for event in values))
-        if (
-            not normalized
-            or len(set(normalized)) != len(normalized)
-            or ("NONE" in normalized and len(normalized) != 1)
-        ):
-            raise ValueError("provide unique events; NONE must be used alone")
-        self._write(f"{command} {','.join(normalized)}")
 
     @property
     def trace_points_minimum(self) -> float:
