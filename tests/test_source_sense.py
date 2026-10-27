@@ -50,11 +50,8 @@ def test_list_and_digital_commands_preserve_values() -> None:
     ]
 
 
-def test_source_function_rejects_sense_only_functions_and_memory_has_no_level():
+def test_memory_source_has_no_direct_level():
     smu = RecordingMeter()
-    with pytest.raises(ValueError, match="source function"):
-        smu.source_function = "RES"
-    assert smu.writes == []
     smu.responses[":SOUR:FUNC?"] = "MEM"
     with pytest.raises(ValueError, match="memory source"):
         smu.source_level = 1
@@ -70,12 +67,9 @@ def test_sense_auto_range_infers_single_selected_function():
     assert smu.writes == [":SENS:CURR:RANG:AUTO OFF"]
 
 
-def test_nplc_is_global_and_validates_positive_finite_numbers():
+def test_nplc_alias_writes_global_setting():
     smu = RecordingMeter()
     smu.nplc = 1.0
-    assert smu.writes == [":SENS:VOLT:NPLC 1"]
-    with pytest.raises(ValueError, match="positive and finite"):
-        smu.sense_current_nplc = float("nan")
     assert smu.writes == [":SENS:VOLT:NPLC 1"]
 
 
@@ -146,17 +140,8 @@ def test_invalid_measurement_function_is_rejected_before_communication():
     assert meter.writes == []
 
 
-def test_function_inputs_require_canonical_tokens():
+def test_query_function_inputs_require_canonical_tokens():
     meter = RecordingMeter()
-    with pytest.raises(ValueError, match="source function"):
-        meter.source_function = "voltage"
     with pytest.raises(ValueError, match="sense function"):
-        meter.enable_sense_functions((" CURR ",))
-    assert meter.writes == []
-
-
-def test_enum_inputs_are_validated_without_normalization():
-    meter = RecordingMeter()
-    with pytest.raises(ValueError, match="value must be one of"):
-        meter.arm_source = " timer "
-    assert meter.writes == []
+        meter.sense_function_enabled(" CURR ")
+    assert meter.queries == []

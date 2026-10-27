@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import math
 import struct
-from collections.abc import Collection, Sequence
+from collections.abc import Sequence
 from types import TracebackType
 from typing import Any
 
@@ -131,27 +130,8 @@ class keithley2400:
         quoted = value.replace('"', '""')
         self._write(f'{command} "{quoted}"')
 
-    def _write_enum(self, command: str, value: str, choices: Collection[str]) -> None:
-        self._verify_choice(value, choices)
-        self._write(f"{command} {value}")
-
-    def _write_trigger_line(self, command: str, line: int) -> None:
-        if line not in (1, 2, 3, 4):
-            raise ValueError("trigger link line must be 1 through 4")
-        self._write_int(f":{command}", line)
-
-    def _write_event_list(
-        self, command: str, events: str | Sequence[str], allowed: Sequence[str]
-    ) -> None:
-        values = (events,) if isinstance(events, str) else tuple(events)
-        for event in values:
-            self._verify_choice(event, allowed)
-        if (
-            not values
-            or len(set(values)) != len(values)
-            or ("NONE" in values and len(values) != 1)
-        ):
-            raise ValueError("provide unique events; NONE must be used alone")
+    def _write_event_list(self, command: str, events: str | Sequence[str]) -> None:
+        values = (events,) if isinstance(events, str) else events
         self._write(f"{command} {','.join(values)}")
 
     # Query helpers
@@ -215,39 +195,9 @@ class keithley2400:
     # Validation helpers
 
     @staticmethod
-    def _verify_positive_finite(value: float) -> None:
-        if not math.isfinite(value) or value <= 0:
-            raise ValueError("value must be positive and finite")
-
-    @staticmethod
     def _verify_sense_function(function: str) -> None:
         if function not in ("VOLT", "CURR", "RES"):
             raise ValueError("sense function must be VOLT, CURR, or RES")
-
-    @staticmethod
-    def _verify_source_function(function: str) -> None:
-        if function not in ("VOLT", "CURR", "MEM"):
-            raise ValueError("source function must be VOLT, CURR, or MEM")
-
-    @staticmethod
-    def _verify_choice(value: str, choices: Collection[str]) -> None:
-        if value not in choices:
-            raise ValueError("value must be one of " + ", ".join(sorted(choices)))
-
-    @staticmethod
-    def _verify_setup_location(value: int) -> None:
-        if not 0 <= value <= 4:
-            raise ValueError("setup location must be from 0 through 4")
-
-    @staticmethod
-    def _verify_range(value: float | str, low: float, high: float) -> None:
-        if isinstance(value, str):
-            keithley2400._verify_choice(
-                value, ("MIN", "MINIMUM", "MAX", "MAXIMUM", "DEF", "DEFAULT")
-            )
-            return
-        if not math.isfinite(value) or not low <= value <= high:
-            raise ValueError("value must be finite and within the documented range")
 
     @staticmethod
     def _verify_limit_index(index: int) -> None:
@@ -365,11 +315,9 @@ class keithley2400:
         return self._query_int("*TST?")
 
     def save_setup(self, location: int) -> None:
-        self._verify_setup_location(location)
         self._write_int("*SAV", location)
 
     def recall_setup(self, location: int) -> None:
-        self._verify_setup_location(location)
         self._write_int("*RCL", location)
 
     def reset(self) -> None:
@@ -397,16 +345,7 @@ class keithley2400:
 
     @power_on_setup.setter
     def power_on_setup(self, value: str) -> None:
-        normalized = value.strip().upper().replace(" ", "")
-        choices = {
-            "RST": "RST",
-            "PRESET": "PRES",
-            "PRES": "PRES",
-            **{f"SAV{i}": f"SAV {i}" for i in range(5)},
-        }
-        if normalized not in choices:
-            raise ValueError("invalid power-on setup")
-        self._write(f":SYST:POSetup {choices[normalized]}")
+        self._write(f":SYST:POSetup {value}")
 
     def preset(self) -> None:
         self._write(":SYST:PRES")
@@ -433,7 +372,6 @@ class keithley2400:
 
     @contact_check_resistance.setter
     def contact_check_resistance(self, value: float) -> None:
-        self._verify_range(value, 0, 60)
         self._write_float(":SYST:CCH:RES", value)
 
     @property
@@ -442,15 +380,13 @@ class keithley2400:
 
     @guard_mode.setter
     def guard_mode(self, value: str) -> None:
-        self._write_enum(":SYST:GUAR", value, ("OHMS", "CABLE"))
+        self._write(f":SYST:GUAR {value}")
 
     def initialize_memory(self) -> None:
         """Initialize battery-backed RAM; clears trace data and saved setups."""
         self._write(":SYST:MEM:INIT")
 
     def beep(self, frequency: float, duration: float) -> None:
-        self._verify_range(frequency, 65, 2000000.0)
-        self._verify_range(duration, 0, 7.9)
         self._write(f":SYST:BEEP {frequency:.12g},{duration:.12g}")
 
     @property
@@ -467,7 +403,7 @@ class keithley2400:
 
     @auto_zero.setter
     def auto_zero(self, state: str) -> None:
-        self._write_enum(":SYST:AZER:STAT", state, ("ON", "OFF", "ONCE"))
+        self._write(f":SYST:AZER:STAT {state}")
 
     @property
     def nplc_caching(self) -> bool:
@@ -493,8 +429,6 @@ class keithley2400:
 
     @line_frequency.setter
     def line_frequency(self, value: int) -> None:
-        if value not in (50, 60):
-            raise ValueError("line_frequency must be 50 or 60 Hz")
         self._write_int(":SYST:LFR", value)
 
     @property
@@ -535,8 +469,6 @@ class keithley2400:
         self._write(":SYST:CLE")
 
     def press_key(self, key_code: int) -> None:
-        if not 1 <= key_code <= 32:
-            raise ValueError("key_code must be from 1 through 32")
         self._write_int(":SYST:KEY", key_code)
 
     def read_last_key(self) -> int:
@@ -579,7 +511,7 @@ class keithley2400:
 
     @range_change_mode.setter
     def range_change_mode(self, mode: str) -> None:
-        self._write_enum(":SYST:RCM", mode, ("SINGLE", "MULTIPLE"))
+        self._write(f":SYST:RCM {mode}")
 
     # Trace buffer
 
@@ -605,7 +537,6 @@ class keithley2400:
 
     @trace_points.setter
     def trace_points(self, count: int | str) -> None:
-        self._verify_range(count, 1, 2500)
         self._write_int(":TRAC:POIN", count)
 
     @property
@@ -618,9 +549,7 @@ class keithley2400:
 
     @trace_feed.setter
     def trace_feed(self, feed: str) -> None:
-        self._write_enum(
-            ":TRAC:FEED", feed, ("SENSE", "SENSE1", "CALC", "CALC1", "CALC2")
-        )
+        self._write(f":TRAC:FEED {feed}")
 
     @property
     def trace_control(self) -> str:
@@ -628,7 +557,7 @@ class keithley2400:
 
     @trace_control.setter
     def trace_control(self, control: str) -> None:
-        self._write_enum(":TRAC:FEED:CONT", control, ("NEXT", "NEVER"))
+        self._write(f":TRAC:FEED:CONT {control}")
 
     @property
     def trace_timestamp_format(self) -> str:
@@ -636,7 +565,7 @@ class keithley2400:
 
     @trace_timestamp_format.setter
     def trace_timestamp_format(self, fmt: str) -> None:
-        self._write_enum(":TRAC:TST:FORM", fmt, ("ABSOLUTE", "DELTA"))
+        self._write(f":TRAC:TST:FORM {fmt}")
 
     # Arm and trigger controls
 
@@ -656,12 +585,7 @@ class keithley2400:
 
     @arm_count.setter
     def arm_count(self, count: int | str) -> None:
-        if isinstance(count, str) and count.strip().upper() in {"INF", "INFINITE"}:
-            parameter = "INF"
-        else:
-            self._verify_range(count, 1, 2500)
-            parameter = count
-        self._write_int(":ARM:COUN", parameter)
+        self._write_int(":ARM:COUN", count)
 
     @property
     def trigger_count(self) -> int:
@@ -669,7 +593,6 @@ class keithley2400:
 
     @trigger_count.setter
     def trigger_count(self, count: int | str) -> None:
-        self._verify_range(count, 1, 2500)
         self._write_int(":TRIG:COUN", count)
 
     @property
@@ -678,21 +601,7 @@ class keithley2400:
 
     @arm_source.setter
     def arm_source(self, source: str) -> None:
-        self._write_enum(
-            ":ARM:SOUR",
-            source,
-            (
-                "IMM",
-                "IMMEDIATE",
-                "TLINK",
-                "TIMER",
-                "MANUAL",
-                "BUS",
-                "NSTEST",
-                "PSTEST",
-                "BSTEST",
-            ),
-        )
+        self._write(f":ARM:SOUR {source}")
 
     @property
     def trigger_source(self) -> str:
@@ -700,7 +609,7 @@ class keithley2400:
 
     @trigger_source.setter
     def trigger_source(self, source: str) -> None:
-        self._write_enum(":TRIG:SOUR", source, ("IMM", "IMMEDIATE", "TLINK"))
+        self._write(f":TRIG:SOUR {source}")
 
     @property
     def trigger_delay(self) -> float:
@@ -708,7 +617,6 @@ class keithley2400:
 
     @trigger_delay.setter
     def trigger_delay(self, delay: float | str) -> None:
-        self._verify_range(delay, 0, 999.9999)
         self._write_float(":TRIG:DEL", delay)
 
     @property
@@ -717,7 +625,6 @@ class keithley2400:
 
     @arm_timer.setter
     def arm_timer(self, seconds: float | str) -> None:
-        self._verify_range(seconds, 0.001, 99999.99)
         self._write_float(":ARM:TIM", seconds)
 
     @property
@@ -726,7 +633,7 @@ class keithley2400:
 
     @arm_bypass.setter
     def arm_bypass(self, direction: str) -> None:
-        self._write_enum(":ARM:DIR", direction, ("SOURCE", "ACCEPTOR"))
+        self._write(f":ARM:DIR {direction}")
 
     @property
     def trigger_bypass(self) -> str:
@@ -734,7 +641,7 @@ class keithley2400:
 
     @trigger_bypass.setter
     def trigger_bypass(self, direction: str) -> None:
-        self._write_enum(":TRIG:DIR", direction, ("SOURCE", "ACCEPTOR"))
+        self._write(f":TRIG:DIR {direction}")
 
     @property
     def arm_input_line(self) -> int:
@@ -742,7 +649,7 @@ class keithley2400:
 
     @arm_input_line.setter
     def arm_input_line(self, line: int) -> None:
-        self._write_trigger_line("ARM:ILIN", line)
+        self._write_int(":ARM:ILIN", line)
 
     @property
     def trigger_input_line(self) -> int:
@@ -750,7 +657,7 @@ class keithley2400:
 
     @trigger_input_line.setter
     def trigger_input_line(self, line: int) -> None:
-        self._write_trigger_line("TRIG:ILIN", line)
+        self._write_int(":TRIG:ILIN", line)
 
     @property
     def arm_output_line(self) -> int:
@@ -758,7 +665,7 @@ class keithley2400:
 
     @arm_output_line.setter
     def arm_output_line(self, line: int) -> None:
-        self._write_trigger_line("ARM:OLIN", line)
+        self._write_int(":ARM:OLIN", line)
 
     @property
     def trigger_output_line(self) -> int:
@@ -766,7 +673,7 @@ class keithley2400:
 
     @trigger_output_line.setter
     def trigger_output_line(self, line: int) -> None:
-        self._write_trigger_line("TRIG:OLIN", line)
+        self._write_int(":TRIG:OLIN", line)
 
     @property
     def arm_output_events(self) -> tuple[str, ...]:
@@ -774,7 +681,7 @@ class keithley2400:
 
     @arm_output_events.setter
     def arm_output_events(self, events: str | Sequence[str]) -> None:
-        self._write_event_list(":ARM:OUTP", events, ("TENTER", "TEXIT", "NONE"))
+        self._write_event_list(":ARM:OUTP", events)
 
     @property
     def trigger_output_events(self) -> tuple[str, ...]:
@@ -782,11 +689,7 @@ class keithley2400:
 
     @trigger_output_events.setter
     def trigger_output_events(self, events: str | Sequence[str]) -> None:
-        self._write_event_list(
-            ":TRIG:OUTP",
-            events,
-            ("SOUR", "SOURCE", "DEL", "DELAY", "SENS", "SENSE", "NONE"),
-        )
+        self._write_event_list(":TRIG:OUTP", events)
 
     @property
     def trigger_input_events(self) -> tuple[str, ...]:
@@ -794,11 +697,7 @@ class keithley2400:
 
     @trigger_input_events.setter
     def trigger_input_events(self, events: str | Sequence[str]) -> None:
-        self._write_event_list(
-            ":TRIG:INP",
-            events,
-            ("SOUR", "SOURCE", "DEL", "DELAY", "SENS", "SENSE", "NONE"),
-        )
+        self._write_event_list(":TRIG:INP", events)
 
     @property
     def contact_check_event_source(self) -> str:
@@ -806,7 +705,7 @@ class keithley2400:
 
     @contact_check_event_source.setter
     def contact_check_event_source(self, source: str) -> None:
-        self._write_enum(":TRIG:SEQ2:SOUR", source, ("CCHECK", "IMMEDIATE", "IMM"))
+        self._write(f":TRIG:SEQ2:SOUR {source}")
 
     @property
     def contact_check_timeout(self) -> float:
@@ -814,7 +713,6 @@ class keithley2400:
 
     @contact_check_timeout.setter
     def contact_check_timeout(self, seconds: float) -> None:
-        self._verify_range(seconds, 0, 999.9999)
         self._write_float(":TRIG:SEQ2:TOUT", seconds)
 
     def set_mep_holdoff(self, enabled: bool) -> None:
@@ -840,7 +738,6 @@ class keithley2400:
         return self._query_data(":MEAS?" if function is None else f":MEAS:{function}?")
 
     def configure_measurement(self, function: str) -> None:
-        self._verify_sense_function(function)
         self._write(f":CONF:{function}")
 
     @property
@@ -929,7 +826,6 @@ class keithley2400:
 
     @source_function.setter
     def source_function(self, value: str) -> None:
-        self._verify_source_function(value)
         self._write(f":SOUR:FUNC {value}")
 
     @property
@@ -1011,12 +907,10 @@ class keithley2400:
 
     def enable_sense_functions(self, functions: Sequence[str]) -> None:
         for value in functions:
-            self._verify_sense_function(value)
             self._write_str(":SENS:FUNC:ON", value)
 
     def disable_sense_functions(self, functions: Sequence[str]) -> None:
         for value in functions:
-            self._verify_sense_function(value)
             self._write_str(":SENS:FUNC:OFF", value)
 
     def enable_all_sense_functions(self) -> None:
@@ -1126,10 +1020,7 @@ class keithley2400:
 
     @resistance_mode.setter
     def resistance_mode(self, value: str) -> None:
-        value = value.upper()
-        if value not in {"AUTO", "MAN", "MANUAL"}:
-            raise ValueError("resistance_mode must be AUTO or MANual")
-        self._write(f":SENS:RES:MODE {('MAN' if value.startswith('MAN') else 'AUTO')}")
+        self._write(f":SENS:RES:MODE {value}")
 
     @property
     def offset_compensated_ohms(self) -> bool:
@@ -1157,10 +1048,7 @@ class keithley2400:
 
     @average_type.setter
     def average_type(self, value: str) -> None:
-        value = value.upper()
-        if value not in {"REP", "REPEAT", "MOV", "MOVING"}:
-            raise ValueError("average_type must be REPeat or MOVing")
-        self._write(f":SENS:AVER:TCON {('REP' if value.startswith('REP') else 'MOV')}")
+        self._write(f":SENS:AVER:TCON {value}")
 
     @property
     def average_count(self) -> int:
@@ -1206,16 +1094,6 @@ class keithley2400:
     @output_off_mode.setter
     def output_off_mode(self, value: str) -> None:
         value = value.upper()
-        if value not in {
-            "HIMP",
-            "HIMPEDANCE",
-            "NORM",
-            "NORMAL",
-            "ZERO",
-            "GUARD",
-            "GUAR",
-        }:
-            raise ValueError("invalid output off mode")
         self._write(f":OUTP:SMOD {value}")
 
     @property
@@ -1225,8 +1103,6 @@ class keithley2400:
     @terminals.setter
     def terminals(self, value: str) -> None:
         value = value.upper()
-        if value not in {"FRONT", "REAR"}:
-            raise ValueError("terminals must be FRONT or REAR")
         self._write(f":ROUT:TERM {value}")
 
     def clear_source(self) -> None:
@@ -1247,8 +1123,6 @@ class keithley2400:
     @auto_output_off_mode.setter
     def auto_output_off_mode(self, value: str) -> None:
         value = value.upper()
-        if value not in {"ALW", "ALWAYS", "TCO", "TCOUNT"}:
-            raise ValueError("mode must be ALWays or TCOunt")
         self._write(f":SOUR:CLE:AUTO:MODE {value}")
 
     @property
@@ -1273,9 +1147,7 @@ class keithley2400:
 
     @sweep_spacing.setter
     def sweep_spacing(self, value: str) -> None:
-        self._write_enum(
-            ":SOUR:SWE:SPAC", value, {"LIN", "LINEAR", "LOG", "LOGARITHMIC"}
-        )
+        self._write(f":SOUR:SWE:SPAC {value}")
 
     @property
     def sweep_points(self) -> int:
@@ -1291,7 +1163,7 @@ class keithley2400:
 
     @sweep_direction.setter
     def sweep_direction(self, value: str) -> None:
-        self._write_enum(":SOUR:SWE:DIR", value, {"UP", "DOWN"})
+        self._write(f":SOUR:SWE:DIR {value}")
 
     @property
     def sweep_ranging(self) -> str:
@@ -1299,7 +1171,7 @@ class keithley2400:
 
     @sweep_ranging.setter
     def sweep_ranging(self, value: str) -> None:
-        self._write_enum(":SOUR:SWE:RANG", value, {"BEST", "AUTO", "FIX", "FIXED"})
+        self._write(f":SOUR:SWE:RANG {value}")
 
     @property
     def sweep_compliance_abort(self) -> str:
@@ -1307,9 +1179,7 @@ class keithley2400:
 
     @sweep_compliance_abort.setter
     def sweep_compliance_abort(self, value: str) -> None:
-        self._write_enum(
-            ":SOUR:SWE:CAB", value, {"NEV", "NEVER", "EAR", "EARLY", "LAT", "LATE"}
-        )
+        self._write(f":SOUR:SWE:CAB {value}")
 
     @property
     def sweep_soak(self) -> float:
@@ -1347,7 +1217,7 @@ class keithley2400:
 
     @pulse_shape.setter
     def pulse_shape(self, value: str) -> None:
-        self._write_enum(":SOUR:FUNC:SHAP", value, {"DC", "PUL", "PULSE"})
+        self._write(f":SOUR:FUNC:SHAP {value}")
 
     @property
     def pulse_width(self) -> float:
@@ -1391,7 +1261,7 @@ class keithley2400:
 
     @digital_line4_mode.setter
     def digital_line4_mode(self, value: str) -> None:
-        self._write_enum(":SOUR2:TTL4:MODE", value, {"EOT", "EOTEST", "BUSY"})
+        self._write(f":SOUR2:TTL4:MODE {value}")
 
     @property
     def digital_busy_polarity(self) -> str:
@@ -1399,7 +1269,7 @@ class keithley2400:
 
     @digital_busy_polarity.setter
     def digital_busy_polarity(self, value: str) -> None:
-        self._write_enum(":SOUR2:TTL4:BST", value, {"HI", "LO"})
+        self._write(f":SOUR2:TTL4:BST {value}")
 
     def clear_digital_output(self) -> None:
         self._write(":SOUR2:CLE:IMM")
@@ -1537,8 +1407,6 @@ class keithley2400:
     @source_voltage_mode.setter
     def source_voltage_mode(self, value: str) -> None:
         value = value.upper()
-        if value not in {"FIX", "FIXED", "SWE", "SWEEP", "LIST"}:
-            raise ValueError("source channel mode must be FIX, SWEEP, or LIST")
         self._write(f":SOUR:VOLT:MODE {value}")
 
     @property
@@ -1757,8 +1625,6 @@ class keithley2400:
     @source_current_mode.setter
     def source_current_mode(self, value: str) -> None:
         value = value.upper()
-        if value not in {"FIX", "FIXED", "SWE", "SWEEP", "LIST"}:
-            raise ValueError("source channel mode must be FIX, SWEEP, or LIST")
         self._write(f":SOUR:CURR:MODE {value}")
 
     @property
@@ -2004,8 +1870,6 @@ class keithley2400:
 
     @sense_voltage_nplc.setter
     def sense_voltage_nplc(self, value: float | str) -> None:
-        if not isinstance(value, str):
-            self._verify_positive_finite(value)
         self._write_float(":SENS:VOLT:NPLC", value)
 
     @property
@@ -2068,8 +1932,6 @@ class keithley2400:
 
     @sense_current_nplc.setter
     def sense_current_nplc(self, value: float | str) -> None:
-        if not isinstance(value, str):
-            self._verify_positive_finite(value)
         self._write_float(":SENS:CURR:NPLC", value)
 
     @property
@@ -2152,8 +2014,6 @@ class keithley2400:
 
     @sense_resistance_nplc.setter
     def sense_resistance_nplc(self, value: float | str) -> None:
-        if not isinstance(value, str):
-            self._verify_positive_finite(value)
         self._write_float(":SENS:RES:NPLC", value)
 
     @property

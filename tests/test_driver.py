@@ -309,3 +309,20 @@ def test_basic_example_uses_public_settings_and_switches_output_off(
     assert "0.001" in capsys.readouterr().out
     assert instrument.writes[-1] == ":OUTP:STAT OFF"
     assert instrument.closed
+
+
+@pytest.mark.parametrize("operation", ["save", "recall", "trigger_line"])
+def test_invalid_write_parameters_raise_instrument_error(operation):
+    instrument = FakeInstrument()
+    instrument.responses[":SYST:ERR:ALL?"] = '-222,"Parameter data out of range"'
+    meter = keithley2400()
+    meter._instr = instrument
+    with pytest.raises(RuntimeError, match="Parameter data out of range"):
+        if operation == "save":
+            meter.save_setup(5)
+        elif operation == "recall":
+            meter.recall_setup(5)
+        else:
+            meter.trigger_input_line = 5
+    assert instrument.queries == [":SYST:ERR:ALL?"]
+    assert len(instrument.writes) == 1

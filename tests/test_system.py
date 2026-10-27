@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-
 from tests.fakes import RecordingMeter
 
 
@@ -63,17 +61,6 @@ def test_read_fetch_measure_and_trace_keep_variable_data():
         ":MEAS?",
         ":TRAC:DATA?",
     ]
-
-
-def test_invalid_trigger_values_fail_before_writing():
-    meter = RecordingMeter()
-    with pytest.raises(ValueError):
-        meter.trigger_input_line = 5
-    with pytest.raises(ValueError):
-        meter.arm_count = 0
-    with pytest.raises(ValueError):
-        meter.trigger_source = "BUS"
-    assert meter.writes == []
 
 
 def test_infinite_arm_count_uses_documented_numeric_sentinel():

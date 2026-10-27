@@ -116,8 +116,8 @@ are `read_errors()` (`:SYST:ERR:ALL?`), `error_count`, `read_error_code()`,
 | `:TRIGger:INPut`, query | `trigger_input_events` | Enable source, delay, or sense detectors; NONE alone disables. |
 
 The manual says the product of arm count and trigger count cannot exceed 2500;
-the independent properties validate each count’s documented range but leave
-the combined trigger-model constraint to the instrument. `ARM:COUNt INFinite`
+the independent properties leave both count ranges and the combined
+trigger-model constraint to the instrument. `ARM:COUNt INFinite`
 has the instrument’s documented restrictions on fetch/read/measure operations.
 
 ## Appendix F contact-check and Appendix G protocol commands
