@@ -37,16 +37,16 @@ sin cos tan exp` operators.
 | `:CALCulate2:NULL:STATe <b>` / `?` | `relative_enabled` |
 | `:CALCulate2:NULL:ACQuire` | `acquire_relative()` |
 | `:CALCulate2:DATA?` / `:DATA:LATest?` | `limit_data`, `limit_latest` |
-| `:CALCulate2:LIMit[1]:COMPliance:FAIL <name>` / `?` | `limit1_compliance_fail_condition` |
-| `:CALCulate2:LIMit[1]:COMPliance:SOURce2 <NRf\|NDN>` / `?` | `get_limit_fail_pattern(1)`, `set_limit_fail_pattern(1, value)` |
-| `:CALCulate2:LIMit[1]:STATe <b>` / `?`; `:FAIL?` | `get_limit_enabled(1)`, `set_limit_enabled(1, value)`; `get_limit_failed(1)` |
-| `:CALCulate2:LIMit2,3,5…12:UPPer[:DATA] <n>` / `?` | `get_limit_upper(index)`, `set_limit_upper(index, value)` |
-| `:CALCulate2:LIMit2,3,5…12:LOWer[:DATA] <n>` / `?` | `get_limit_lower(index)`, `set_limit_lower(index, value)` |
-| `:CALCulate2:LIMit2,3,5…12:UPPer:SOURce2 <NRf\|NDN>` / `?` | `get_limit_upper_fail_pattern(index)`, `set_limit_upper_fail_pattern(index, value)` |
-| `:CALCulate2:LIMit2,3,5…12:LOWer:SOURce2 <NRf\|NDN>` / `?` | `get_limit_fail_pattern(index)`, `set_limit_fail_pattern(index, value)` |
-| `:CALCulate2:LIMit2,3,5…12:PASS:SOURce2 <NRf\|NDN>` / `?` | `get_limit_pass_pattern(index)`, `set_limit_pass_pattern(index, value)` |
-| `:CALCulate2:LIMit2,3,4,5…12:STATe <b>` / `?`; `:FAIL?` | `get_limit_enabled(index)`, `set_limit_enabled(index, value)`; `get_limit_failed(index)` |
-| `:CALCulate2:LIMit4:SOURce2 <NRf\|NDN>` / `?` | `get_limit_fail_pattern(4)`, `set_limit_fail_pattern(4, value)` |
+| `:CALCulate2:LIMit[1]:COMPliance:FAIL <name>` / `?` | `limit_test_1_compliance_fail_condition` |
+| `:CALCulate2:LIMit[1]:COMPliance:SOURce2 <NRf\|NDN>` / `?` | `get_limit_test_fail_pattern(1)`, `set_limit_test_fail_pattern(1, value)` |
+| `:CALCulate2:LIMit[1]:STATe <b>` / `?`; `:FAIL?` | `get_limit_test_enabled(1)`, `set_limit_test_enabled(1, value)`; `get_limit_test_failed(1)` |
+| `:CALCulate2:LIMit2,3,5…12:UPPer[:DATA] <n>` / `?` | `get_limit_test_upper(index)`, `set_limit_test_upper(index, value)` |
+| `:CALCulate2:LIMit2,3,5…12:LOWer[:DATA] <n>` / `?` | `get_limit_test_lower(index)`, `set_limit_test_lower(index, value)` |
+| `:CALCulate2:LIMit2,3,5…12:UPPer:SOURce2 <NRf\|NDN>` / `?` | `get_limit_test_upper_fail_pattern(index)`, `set_limit_test_upper_fail_pattern(index, value)` |
+| `:CALCulate2:LIMit2,3,5…12:LOWer:SOURce2 <NRf\|NDN>` / `?` | `get_limit_test_fail_pattern(index)`, `set_limit_test_fail_pattern(index, value)` |
+| `:CALCulate2:LIMit2,3,5…12:PASS:SOURce2 <NRf\|NDN>` / `?` | `get_limit_test_pass_pattern(index)`, `set_limit_test_pass_pattern(index, value)` |
+| `:CALCulate2:LIMit2,3,4,5…12:STATe <b>` / `?`; `:FAIL?` | `get_limit_test_enabled(index)`, `set_limit_test_enabled(index, value)`; `get_limit_test_failed(index)` |
+| `:CALCulate2:LIMit4:SOURce2 <NRf\|NDN>` / `?` | `get_limit_test_fail_pattern(4)`, `set_limit_test_fail_pattern(4, value)` |
 | `:CALCulate2:CLIMits:PASS:SOURce2 <NRf\|NDN>` / `?`; summary Table 18-1 p18-7: `:CALCulate2:PASS:SOURce2` | `composite_limit_pass_pattern` |
 | `:CALCulate2:CLIMits:FAIL:SOURce2 <NRf\|NDN>` / `?`; summary Table 18-1 p18-7: `:CALCulate2:FAIL:SOURce2` | `composite_limit_fail_pattern` |
 | `:CALCulate2:CLIMits:PASS:SMLocation <NRf\|NEXT>` / `?` | `composite_limit_pass_memory_location` |
@@ -132,3 +132,10 @@ the communication layer parses SCPI non-decimal response forms. Error queue
 enable/disable lists are passed through as comma-separated codes. CALC2 limit
 failure-result reads report the current result without clearing its failure
 indication.
+
+The numbered `limit_test` methods address measurement pass/fail tests in
+`CALCulate2:LIMit<n>`, rather than source compliance settings or measurement
+ranges. Test 1 checks compliance, test 4 checks contact, and tests 2, 3, and
+5–12 compare measurements with lower and upper thresholds. Digital patterns
+specify the test's pass/fail outputs. For numeric tests, `get_limit_test_fail_pattern`
+and `set_limit_test_fail_pattern` address the lower-threshold failure pattern.

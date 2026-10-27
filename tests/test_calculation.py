@@ -42,11 +42,11 @@ def test_indexed_limit_families_contact_check_and_composite_sorting():
             ":CALC2:CLIM:PASS:SOUR2?": "#H0F",
         }
     )
-    assert meter.get_limit_failed(4) is True
-    assert meter.get_limit_upper(5) == 2.5
+    assert meter.get_limit_test_failed(4) is True
+    assert meter.get_limit_test_upper(5) == 2.5
     assert meter.composite_limit_pass_pattern == 15
-    meter.set_limit_upper(12, 3.25)
-    meter.limit1_compliance_fail_condition = "OUT"
+    meter.set_limit_test_upper(12, 3.25)
+    meter.limit_test_1_compliance_fail_condition = "OUT"
     meter.composite_limit_mode = "SORT"
     meter.composite_limit_pass_memory_location = "NEXT"
     meter.composite_limit_auto_clear = False
@@ -60,9 +60,9 @@ def test_indexed_limit_families_contact_check_and_composite_sorting():
         ":CALC2:CLIM:CLE",
     ]
     with pytest.raises(ValueError):
-        meter.get_limit_enabled(13)
+        meter.get_limit_test_enabled(13)
     with pytest.raises(ValueError):
-        _ = meter.get_limit_upper(4)
+        _ = meter.get_limit_test_upper(4)
 
 
 def test_display_format_and_status_register_command_contracts():
@@ -103,6 +103,6 @@ def test_display_format_and_status_register_command_contracts():
 
 def test_indexed_limit_parameter_default_is_a_single_query():
     meter = RecordingMeter({":CALC2:LIM5:UPP? DEF": "1"})
-    assert meter.get_limit_upper_default(5) == 1
+    assert meter.get_limit_test_upper_default(5) == 1
     assert meter.queries == [":CALC2:LIM5:UPP? DEF"]
     assert meter.writes == []

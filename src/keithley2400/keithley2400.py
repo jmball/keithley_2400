@@ -200,19 +200,25 @@ class keithley2400:
             raise ValueError("sense function must be VOLT, CURR, or RES")
 
     @staticmethod
-    def _verify_limit_index(index: int) -> None:
+    def _verify_limit_test_index(index: int) -> None:
+        """Validate a measurement limit test number (1–12)."""
         if (
             isinstance(index, bool)
             or not isinstance(index, int)
             or not 1 <= index <= 12
         ):
-            raise ValueError("limit index must be from 1 through 12")
+            raise ValueError("measurement limit test index must be from 1 through 12")
 
-    def _verify_numeric_limit_index(self, index: int) -> None:
-        self._verify_limit_index(index)
+    def _verify_numeric_limit_test_index(self, index: int) -> None:
+        """Validate a numeric measurement limit test number (2, 3, or 5–12).
+
+        Exclude compliance test 1 and contact-check test 4, which have no
+        numeric thresholds or corresponding upper-failure/pass patterns.
+        """
+        self._verify_limit_test_index(index)
         if index in (1, 4):
             raise ValueError(
-                "numeric thresholds apply to limits 2, 3, and 5 through 12"
+                "numeric measurement limit tests are 2, 3, and 5 through 12"
             )
 
     # Format commands
@@ -2370,46 +2376,93 @@ class keithley2400:
     def read_questionable_status_event(self) -> int:
         return self._query_int(":STAT:QUES:EVEN?")
 
-    # Indexed limit tests
+    # Measurement limit tests (CALCulate2:LIMit1–12)
 
-    def get_limit_enabled(self, index: int) -> bool:
-        self._verify_limit_index(index)
+    def get_limit_test_enabled(self, index: int) -> bool:
+        """Read whether measurement limit test `index` is enabled (1–12).
+
+        Test 1 checks compliance; test 4 checks contact; tests 2, 3, and
+        5–12 compare measurements against numeric thresholds.
+        """
+        self._verify_limit_test_index(index)
         return self._query_bool(f":CALC2:LIM{index}:STAT?")
 
-    def set_limit_enabled(self, index: int, enabled: bool) -> None:
-        self._verify_limit_index(index)
+    def set_limit_test_enabled(self, index: int, enabled: bool) -> None:
+        """Set whether measurement limit test `index` is enabled (1–12).
+
+        Test 1 checks compliance; test 4 checks contact; tests 2, 3, and
+        5–12 compare measurements against numeric thresholds.
+        """
+        self._verify_limit_test_index(index)
         self._write_bool(f":CALC2:LIM{index}:STAT", enabled)
 
-    def get_limit_failed(self, index: int) -> bool:
-        self._verify_limit_index(index)
+    def get_limit_test_failed(self, index: int) -> bool:
+        """Read whether measurement limit test `index` failed (1–12).
+
+        Test 1 checks compliance; test 4 checks contact; tests 2, 3, and
+        5–12 compare measurements against numeric thresholds.
+        """
+        self._verify_limit_test_index(index)
         return self._query_bool(f":CALC2:LIM{index}:FAIL?")
 
-    def get_limit_upper(self, index: int) -> float:
-        self._verify_numeric_limit_index(index)
+    def get_limit_test_upper(self, index: int) -> float:
+        """Read the upper measurement threshold for limit test `index`.
+
+        Applies to numeric tests 2, 3, and 5–12. Test 1 is the compliance
+        test and test 4 is the contact-check test; neither has thresholds.
+        """
+        self._verify_numeric_limit_test_index(index)
         return self._query_float(f":CALC2:LIM{index}:UPP?")
 
-    def set_limit_upper(self, index: int, value: float | str) -> None:
-        self._verify_numeric_limit_index(index)
+    def set_limit_test_upper(self, index: int, value: float | str) -> None:
+        """Set the upper measurement threshold for limit test `index`.
+
+        Applies to numeric tests 2, 3, and 5–12. Test 1 is the compliance
+        test and test 4 is the contact-check test; neither has thresholds.
+        """
+        self._verify_numeric_limit_test_index(index)
         self._write_float(f":CALC2:LIM{index}:UPP", value)
 
-    def get_limit_lower(self, index: int) -> float:
-        self._verify_numeric_limit_index(index)
+    def get_limit_test_lower(self, index: int) -> float:
+        """Read the lower measurement threshold for limit test `index`.
+
+        Applies to numeric tests 2, 3, and 5–12. Test 1 is the compliance
+        test and test 4 is the contact-check test; neither has thresholds.
+        """
+        self._verify_numeric_limit_test_index(index)
         return self._query_float(f":CALC2:LIM{index}:LOW?")
 
-    def set_limit_lower(self, index: int, value: float | str) -> None:
-        self._verify_numeric_limit_index(index)
+    def set_limit_test_lower(self, index: int, value: float | str) -> None:
+        """Set the lower measurement threshold for limit test `index`.
+
+        Applies to numeric tests 2, 3, and 5–12. Test 1 is the compliance
+        test and test 4 is the contact-check test; neither has thresholds.
+        """
+        self._verify_numeric_limit_test_index(index)
         self._write_float(f":CALC2:LIM{index}:LOW", value)
 
-    def get_limit_fail_pattern(self, index: int) -> int:
-        self._verify_limit_index(index)
+    def get_limit_test_fail_pattern(self, index: int) -> int:
+        """Read the digital failure pattern for measurement limit test `index` (1–12).
+
+        Test 1 checks compliance; test 4 checks contact; tests 2, 3, and
+        5–12 compare measurements against numeric thresholds. For numeric
+        tests, this is the lower-threshold failure pattern.
+        """
+        self._verify_limit_test_index(index)
         if index == 1:
             return self._query_int(":CALC2:LIM1:COMP:SOUR2?")
         if index == 4:
             return self._query_int(":CALC2:LIM4:SOUR2?")
         return self._query_int(f":CALC2:LIM{index}:LOW:SOUR2?")
 
-    def set_limit_fail_pattern(self, index: int, value: int | str) -> None:
-        self._verify_limit_index(index)
+    def set_limit_test_fail_pattern(self, index: int, value: int | str) -> None:
+        """Set the digital failure pattern for measurement limit test `index` (1–12).
+
+        Test 1 checks compliance; test 4 checks contact; tests 2, 3, and
+        5–12 compare measurements against numeric thresholds. For numeric
+        tests, this is the lower-threshold failure pattern.
+        """
+        self._verify_limit_test_index(index)
         if index == 1:
             self._write_int(":CALC2:LIM1:COMP:SOUR2", value)
         elif index == 4:
@@ -2417,50 +2470,102 @@ class keithley2400:
         else:
             self._write_int(f":CALC2:LIM{index}:LOW:SOUR2", value)
 
-    def get_limit_upper_fail_pattern(self, index: int) -> int:
-        self._verify_numeric_limit_index(index)
+    def get_limit_test_upper_fail_pattern(self, index: int) -> int:
+        """Read the digital upper-failure pattern for measurement limit test `index`.
+
+        Applies to numeric tests 2, 3, and 5–12. Test 1 is the compliance
+        test and test 4 is the contact-check test; neither has thresholds.
+        """
+        self._verify_numeric_limit_test_index(index)
         return self._query_int(f":CALC2:LIM{index}:UPP:SOUR2?")
 
-    def set_limit_upper_fail_pattern(self, index: int, value: int | str) -> None:
-        self._verify_numeric_limit_index(index)
+    def set_limit_test_upper_fail_pattern(self, index: int, value: int | str) -> None:
+        """Set the digital upper-failure pattern for measurement limit test `index`.
+
+        Applies to numeric tests 2, 3, and 5–12. Test 1 is the compliance
+        test and test 4 is the contact-check test; neither has thresholds.
+        """
+        self._verify_numeric_limit_test_index(index)
         self._write_int(f":CALC2:LIM{index}:UPP:SOUR2", value)
 
-    def get_limit_pass_pattern(self, index: int) -> int:
-        self._verify_numeric_limit_index(index)
+    def get_limit_test_pass_pattern(self, index: int) -> int:
+        """Read the digital pass pattern for measurement limit test `index`.
+
+        Applies to numeric tests 2, 3, and 5–12. Test 1 is the compliance
+        test and test 4 is the contact-check test; neither has thresholds.
+        """
+        self._verify_numeric_limit_test_index(index)
         return self._query_int(f":CALC2:LIM{index}:PASS:SOUR2?")
 
-    def set_limit_pass_pattern(self, index: int, value: int | str) -> None:
-        self._verify_numeric_limit_index(index)
+    def set_limit_test_pass_pattern(self, index: int, value: int | str) -> None:
+        """Set the digital pass pattern for measurement limit test `index`.
+
+        Applies to numeric tests 2, 3, and 5–12. Test 1 is the compliance
+        test and test 4 is the contact-check test; neither has thresholds.
+        """
+        self._verify_numeric_limit_test_index(index)
         self._write_int(f":CALC2:LIM{index}:PASS:SOUR2", value)
 
     @property
-    def limit1_compliance_fail_condition(self) -> str:
+    def limit_test_1_compliance_fail_condition(self) -> str:
+        """Read the compliance condition that fails measurement limit test 1."""
         return self._query(":CALC2:LIM:COMP:FAIL?").upper()
 
-    @limit1_compliance_fail_condition.setter
-    def limit1_compliance_fail_condition(self, value: str) -> None:
+    @limit_test_1_compliance_fail_condition.setter
+    def limit_test_1_compliance_fail_condition(self, value: str) -> None:
+        """Set the compliance condition that fails measurement limit test 1."""
         self._write(f":CALC2:LIM:COMP:FAIL {value}")
 
-    def get_limit_upper_minimum(self, index: int) -> float:
-        self._verify_numeric_limit_index(index)
+    def get_limit_test_upper_minimum(self, index: int) -> float:
+        """Read the minimum allowed upper threshold for measurement limit test `index`.
+
+        Applies to numeric tests 2, 3, and 5–12. Test 1 is the compliance
+        test and test 4 is the contact-check test; neither has thresholds.
+        """
+        self._verify_numeric_limit_test_index(index)
         return self._query_float(f":CALC2:LIM{index}:UPP? MIN")
 
-    def get_limit_upper_maximum(self, index: int) -> float:
-        self._verify_numeric_limit_index(index)
+    def get_limit_test_upper_maximum(self, index: int) -> float:
+        """Read the maximum allowed upper threshold for measurement limit test `index`.
+
+        Applies to numeric tests 2, 3, and 5–12. Test 1 is the compliance
+        test and test 4 is the contact-check test; neither has thresholds.
+        """
+        self._verify_numeric_limit_test_index(index)
         return self._query_float(f":CALC2:LIM{index}:UPP? MAX")
 
-    def get_limit_upper_default(self, index: int) -> float:
-        self._verify_numeric_limit_index(index)
+    def get_limit_test_upper_default(self, index: int) -> float:
+        """Read the default upper threshold for measurement limit test `index`.
+
+        Applies to numeric tests 2, 3, and 5–12. Test 1 is the compliance
+        test and test 4 is the contact-check test; neither has thresholds.
+        """
+        self._verify_numeric_limit_test_index(index)
         return self._query_float(f":CALC2:LIM{index}:UPP? DEF")
 
-    def get_limit_lower_minimum(self, index: int) -> float:
-        self._verify_numeric_limit_index(index)
+    def get_limit_test_lower_minimum(self, index: int) -> float:
+        """Read the minimum allowed lower threshold for measurement limit test `index`.
+
+        Applies to numeric tests 2, 3, and 5–12. Test 1 is the compliance
+        test and test 4 is the contact-check test; neither has thresholds.
+        """
+        self._verify_numeric_limit_test_index(index)
         return self._query_float(f":CALC2:LIM{index}:LOW? MIN")
 
-    def get_limit_lower_maximum(self, index: int) -> float:
-        self._verify_numeric_limit_index(index)
+    def get_limit_test_lower_maximum(self, index: int) -> float:
+        """Read the maximum allowed lower threshold for measurement limit test `index`.
+
+        Applies to numeric tests 2, 3, and 5–12. Test 1 is the compliance
+        test and test 4 is the contact-check test; neither has thresholds.
+        """
+        self._verify_numeric_limit_test_index(index)
         return self._query_float(f":CALC2:LIM{index}:LOW? MAX")
 
-    def get_limit_lower_default(self, index: int) -> float:
-        self._verify_numeric_limit_index(index)
+    def get_limit_test_lower_default(self, index: int) -> float:
+        """Read the default lower threshold for measurement limit test `index`.
+
+        Applies to numeric tests 2, 3, and 5–12. Test 1 is the compliance
+        test and test 4 is the contact-check test; neither has thresholds.
+        """
+        self._verify_numeric_limit_test_index(index)
         return self._query_float(f":CALC2:LIM{index}:LOW? DEF")

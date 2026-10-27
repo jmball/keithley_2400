@@ -57,6 +57,6 @@ The following table lists the prefixes to which those three suffixes apply:
 | Trace points | `trace_points` |
 | Arm/trigger count, arm timer, trigger delay | `arm_count`, `trigger_count`, `arm_timer`, `trigger_delay` |
 
-Indexed numeric limit thresholds (2, 3, 5–12) use `get_limit_upper_minimum(index)`, `get_limit_upper_maximum(index)`, and `get_limit_upper_default(index)`, with equivalent `get_limit_lower_*` methods. Each method also performs only its one documented query.
+Indexed numeric limit thresholds (2, 3, 5–12) use `get_limit_test_upper_minimum(index)`, `get_limit_test_upper_maximum(index)`, and `get_limit_test_upper_default(index)`, with equivalent `get_limit_test_lower_*` methods. Each method also performs only its one documented query.
 
 Transfer-format fixtures use the canonical short responses `ASC`, `REAL`/`SREAL`, `NORM`, and `SWAP`. The manual names the allowed parameters but does not explicitly illustrate every query readback spelling. Those readbacks, and the conflicting command spellings noted above, still need hardware confirmation; the driver does not silently try alternate spellings.
