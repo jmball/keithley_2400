@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+
 from ._communication import NumericLimits, _Communication
 
 
@@ -551,7 +552,6 @@ class SourceSenseCommands(_Communication):
     def averaging_enabled(self, value: bool) -> None:
         self._write_bool(":SENS:AVER:STAT", value)
 
-    @property
     @property
     def output_enabled(self) -> bool:
         return self._query_bool(":OUTP:STAT?")

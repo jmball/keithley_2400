@@ -1,5 +1,7 @@
 """Take one current reading while sourcing a fixed voltage."""
 
+from contextlib import closing
+
 import pyvisa
 
 from keithley2400 import keithley2400
@@ -18,7 +20,7 @@ def configure_single_read(meter: keithley2400) -> None:
 
 
 def main() -> None:
-    with pyvisa.ResourceManager() as manager, keithley2400() as meter:
+    with closing(pyvisa.ResourceManager()) as manager, keithley2400() as meter:
         meter.connect("GPIB0::24::INSTR", resource_manager=manager)
         try:
             print(meter.identity)
@@ -31,7 +33,7 @@ def main() -> None:
             meter.sense_functions = ("CURR",)
             meter.current_compliance = 0.01
             meter.output_enabled = True
-            voltage, current, resistance, timestamp, status = meter.read()
+            _voltage, current, _resistance, _timestamp, _status = meter.read()
             print(current)
         finally:
             meter.output_enabled = False

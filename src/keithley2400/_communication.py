@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
-from collections.abc import Collection, Sequence
 import math
 import struct
+from collections.abc import Collection, Sequence
 from types import TracebackType
 from typing import Any, NamedTuple, TypeVar
 
 import pyvisa
-from pyvisa.resources import GPIBInstrument, SerialInstrument, TCPIPSocket
+from pyvisa.resources import (
+    GPIBInstrument,
+    MessageBasedResource,
+    SerialInstrument,
+    TCPIPSocket,
+)
 
 
 class NumericLimits(NamedTuple):
@@ -65,11 +70,13 @@ class _Communication:
             if resource_manager is not None
             else pyvisa.ResourceManager()
         )
-        settings = {"encoding": "ascii"}
+        settings: dict[str, Any] = {"encoding": "ascii"}
         settings.update(resource_kwargs)
         instrument = manager.open_resource(resource_name, **settings)
-        self._instr = instrument
         try:
+            if not isinstance(instrument, MessageBasedResource):
+                raise TypeError("a message-based VISA resource is required")
+            self._instr = instrument
             if isinstance(instrument, TCPIPSocket):
                 if not resource_kwargs.get(
                     "read_termination"

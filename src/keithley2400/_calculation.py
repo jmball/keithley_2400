@@ -137,7 +137,9 @@ class _LimitTest:
         suffix = (
             "COMP:SOUR2"
             if self._index == 1
-            else "SOUR2" if self._index == 4 else "LOW:SOUR2"
+            else "SOUR2"
+            if self._index == 4
+            else "LOW:SOUR2"
         )
         return self._pattern(suffix)
 
@@ -146,7 +148,9 @@ class _LimitTest:
         suffix = (
             "COMP:SOUR2"
             if self._index == 1
-            else "SOUR2" if self._index == 4 else "LOW:SOUR2"
+            else "SOUR2"
+            if self._index == 4
+            else "LOW:SOUR2"
         )
         self._set_pattern(suffix, value)
 

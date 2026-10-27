@@ -108,3 +108,8 @@ def test_multiple_sense_functions_enable_concurrent_measurements():
 def test_output_enable_trip_uses_the_manuals_inverted_bit(response, tripped):
     meter = RecordingMeter({":OUTP:ENAB:TRIP?": response})
     assert meter.output_enable_tripped is tripped
+
+
+def test_output_state_is_readable():
+    meter = RecordingMeter({":OUTP:STAT?": "1"})
+    assert meter.output_enabled is True

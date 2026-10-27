@@ -84,7 +84,7 @@ def test_display_format_and_status_register_command_contracts():
     meter.data_elements = ("VOLT", "CURR", "STAT")
     meter.calculation_elements = "CALC,TIME"
     meter.measurement_status.enable = 7
-    meter.error_queue_enabled = ("-110", "-222")
+    meter.error_queue_enabled = (-110, -222)
     meter.preset_status()
     meter.clear_status_errors()
     assert meter.writes == [

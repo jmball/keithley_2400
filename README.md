@@ -2,13 +2,27 @@
 
 A PyVISA driver exposing the SCPI commands in the manufacturer's [Series 2400 SourceMeter User's Manual, revision K](https://download.tek.com/manual/2400S-900-01_K-Sep2011_User.pdf). Settings and read-only values are properties; actions are methods. Command implementations are grouped by subsystem, with shared endpoints for voltage/current sources, sense functions, limit tests, display windows, and status registers.
 
-Install with `pip install .`. A VISA backend and suitable adapter support are required; PyVISA-py with serial support is included. Run the behavioral tests with `uv run --extra test pytest`.
+Install with `pip install .`. A VISA backend and suitable adapter support are required; PyVISA-py with serial support is included.
+
+For development, use **ty** for type checking and **Ruff** for linting and formatting. Their configuration and locked development dependencies live in `pyproject.toml` and `uv.lock`. Install and run the same checks used by CI:
+
+```sh
+uv sync --locked --extra test
+uv run --locked ty check --error-on-warning
+uv run --locked ruff check .
+uv run --locked ruff format --check .
+uv run --locked pytest -q
+```
+
+Apply formatting with `uv run ruff format .` and safe lint fixes with `uv run ruff check --fix .`. Checks cover source, tests, and examples; CI runs on Python 3.10 and 3.13.
 
 ```python
+from contextlib import closing
+
 import pyvisa
 from keithley2400 import keithley2400
 
-with pyvisa.ResourceManager() as manager, keithley2400() as meter:
+with closing(pyvisa.ResourceManager()) as manager, keithley2400() as meter:
     meter.connect("GPIB0::24::INSTR", resource_manager=manager)
     try:
         print(meter.identity)

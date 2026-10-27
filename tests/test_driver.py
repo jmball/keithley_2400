@@ -1,28 +1,44 @@
 from __future__ import annotations
 
-from collections import deque
 import struct
+from collections import deque
 
-import pyvisa
-from pyvisa.resources import GPIBInstrument, SerialInstrument, TCPIPSocket
 import pytest
+import pyvisa
+from pyvisa import constants
+from pyvisa.resources import (
+    GPIBInstrument,
+    MessageBasedResource,
+    SerialInstrument,
+    TCPIPSocket,
+)
 
 from keithley2400 import keithley2400
 
 
-class FakeInstrument:
+class FakeInstrument(MessageBasedResource):
+    _session = None
+    read_termination = None
+    write_termination = None
+
     def __init__(self):
         self.writes = []
         self.queries = []
-        self.responses = {":SYST:ERR?": '0,"No error"', ":FORM:DATA?": "ASC"}
+        self.responses: dict[str, str | deque[str] | Exception] = {
+            ":SYST:ERR?": '0,"No error"',
+            ":FORM:DATA?": "ASC",
+        }
         self.closed = False
 
-    def write(self, command):
-        self.writes.append(command)
+    def write(
+        self, message: str, termination: str | None = None, encoding: str | None = None
+    ) -> int:
+        self.writes.append(message)
+        return len(message)
 
-    def query(self, command):
-        self.queries.append(command)
-        response = self.responses[command]
+    def query(self, message: str, delay: float | None = None) -> str:
+        self.queries.append(message)
+        response = self.responses[message]
         if isinstance(response, deque):
             response = response.popleft()
         if isinstance(response, Exception):
@@ -33,15 +49,21 @@ class FakeInstrument:
         self.closed = True
 
 
-class FakeManager:
+class FakeManager(pyvisa.ResourceManager):
+    def __new__(cls, *args, **kwargs):
+        return object.__new__(cls)
+
     def __init__(self, instrument):
         self.instrument = instrument
         self.calls = []
 
-    def open_resource(self, name, **kwargs):
-        self.calls.append((name, kwargs))
+    def open_resource(self, resource_name: str, *args, **kwargs) -> FakeInstrument:
+        self.calls.append((resource_name, kwargs))
         self.instrument.__dict__.update(kwargs)
         return self.instrument
+
+    def close(self):
+        pass
 
 
 class FakeSerialInstrument(FakeInstrument, SerialInstrument):
@@ -57,11 +79,12 @@ class FakeSocketInstrument(FakeInstrument, TCPIPSocket):
 
 
 class FakeGpibInstrument(FakeInstrument, GPIBInstrument):
+    block: bytes
     _session = None
     read_termination = "\n"
     write_termination = None
 
-    def read_raw(self):
+    def read_raw(self, size: int | None = None) -> bytes:
         assert self.read_termination is None
         return self.block
 
@@ -227,7 +250,7 @@ def test_error_checks_can_be_deferred_for_async_trigger_sequence():
 
 def test_query_timeout_does_not_issue_error_query_into_pending_response():
     instrument = FakeInstrument()
-    timeout = pyvisa.errors.VisaIOError(pyvisa.constants.StatusCode.error_timeout)
+    timeout = pyvisa.errors.VisaIOError(constants.StatusCode.error_timeout)
     instrument.responses[":READ?"] = timeout
     meter = keithley2400()
     meter._instr = instrument
