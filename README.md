@@ -105,3 +105,9 @@ The [command coverage index](docs/commands.md) maps the common commands, signal-
 Calibration service commands are not specified in this user/programming reference and are not invented by this driver. The separate 488.1 bus protocol described in Appendix G is not the SCPI programming language; its documented SCPI MEP controls are exposed. Calibration service commands would require the corresponding service programming documentation.
 
 Tests exercise representative protocol contracts, binary framing/byte order, lifecycle behavior, and automatic error/timeout handling. Physical instruments and Ethernet adapters have not been tested.
+
+The `timeout` property exposes the current VISA I/O timeout in milliseconds.
+Use `meter.timeout = 60_000` for a longer wait, or `float("inf")` to disable
+I/O timeouts. This is a session setting and sends no instrument command.
+It can also be supplied to `connect(timeout=...)`. Queries, including
+`wait_complete()`, propagate VISA timeout exceptions without retries.

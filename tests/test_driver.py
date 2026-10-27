@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import struct
 from collections import deque
+from typing import Any
 
 import pytest
 import pyvisa
@@ -22,6 +23,9 @@ class FakeInstrument(MessageBasedResource):
     write_termination = None
 
     def __init__(self):
+        self.attributes: dict[constants.ResourceAttribute, Any] = {
+            constants.ResourceAttribute.timeout_value: 2000
+        }
         self.writes = []
         self.queries = []
         self.responses: dict[str, str | deque[str] | Exception] = {
@@ -29,6 +33,15 @@ class FakeInstrument(MessageBasedResource):
             ":FORM:DATA?": "ASC",
         }
         self.closed = False
+
+    def get_visa_attribute(self, name: constants.ResourceAttribute) -> Any:
+        return self.attributes[name]
+
+    def set_visa_attribute(
+        self, name: constants.ResourceAttribute, state: Any
+    ) -> constants.StatusCode:
+        self.attributes[name] = state
+        return constants.StatusCode.success
 
     def write(
         self, message: str, termination: str | None = None, encoding: str | None = None
@@ -326,3 +339,23 @@ def test_invalid_write_parameters_raise_instrument_error(operation):
             meter.trigger_input_line = 5
     assert instrument.queries == [":SYST:ERR:ALL?"]
     assert len(instrument.writes) == 1
+
+
+def test_timeout_exposes_session_setting_without_instrument_commands():
+    instrument = FakeInstrument()
+    meter = keithley2400()
+    meter.connect("GPIB0::24::INSTR", resource_manager=FakeManager(instrument))
+    assert meter.timeout == 2000
+    meter.timeout = 60000
+    assert instrument.timeout == 60000
+    instrument.timeout = float("inf")
+    assert meter.timeout == float("inf")
+    assert instrument.writes == instrument.queries == []
+
+
+def test_timeout_requires_connected_session():
+    meter = keithley2400()
+    with pytest.raises(RuntimeError, match="not connected"):
+        _ = meter.timeout
+    with pytest.raises(RuntimeError, match="not connected"):
+        meter.timeout = 60000

@@ -97,6 +97,20 @@ class keithley2400:
     def connected(self) -> bool:
         return self._instr is not None
 
+    @property
+    def timeout(self) -> float:
+        """VISA I/O timeout in milliseconds; float("inf") disables the timeout."""
+        if self._instr is not None:
+            return self._instr.timeout
+        raise RuntimeError("not connected")
+
+    @timeout.setter
+    def timeout(self, value: float) -> None:
+        if self._instr is not None:
+            self._instr.timeout = value
+        else:
+            raise RuntimeError("not connected")
+
     def disconnect(self) -> None:
         """Close the instrument session, if connected."""
         instrument, self._instr = (self._instr, None)
