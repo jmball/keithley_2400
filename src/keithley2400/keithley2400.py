@@ -511,14 +511,9 @@ class keithley2400:
 
     def check_errors(self) -> None:
         """Drain the error queue and raise RuntimeError containing its raw messages."""
-        errors = []
-        while True:
-            error = self.read_error()
-            if int(error.split(",", 1)[0]) == 0:
-                break
-            errors.append(error)
-        if errors:
-            raise RuntimeError("\n".join(errors))
+        errors = self.read_errors()
+        if int(errors.split(",", 1)[0]) != 0:
+            raise RuntimeError(errors)
 
     def read_errors(self) -> str:
         """Read and remove all queued errors in one query."""

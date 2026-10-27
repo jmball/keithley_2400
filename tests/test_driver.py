@@ -25,7 +25,7 @@ class FakeInstrument(MessageBasedResource):
         self.writes = []
         self.queries = []
         self.responses: dict[str, str | deque[str] | Exception] = {
-            ":SYST:ERR?": '0,"No error"',
+            ":SYST:ERR:ALL?": '0,"No error"',
             ":FORM:DATA?": "ASC",
         }
         self.closed = False
@@ -234,15 +234,15 @@ def test_read_response_receives_pending_data_without_sending_commands():
 
 def test_write_checks_error_queue_and_raises_raw_instrument_messages():
     instrument = FakeInstrument()
-    errors = ['-222,"Parameter data out of range"', '-221,"Settings conflict"']
-    instrument.responses[":SYST:ERR?"] = deque([*errors, '0,"No error"'])
+    errors = '-222,"Parameter data out of range",-221,"Settings conflict"'
+    instrument.responses[":SYST:ERR:ALL?"] = errors
     meter = keithley2400()
     meter._instr = instrument
     with pytest.raises(RuntimeError) as caught:
         meter.output_enabled = True
-    assert str(caught.value) == "\n".join(errors)
+    assert str(caught.value) == errors
     assert instrument.writes == [":OUTP:STAT ON"]
-    assert instrument.queries == [":SYST:ERR?"] * 3
+    assert instrument.queries == [":SYST:ERR:ALL?"]
 
 
 def test_error_checks_can_be_deferred_for_async_trigger_sequence():
@@ -253,7 +253,7 @@ def test_error_checks_can_be_deferred_for_async_trigger_sequence():
     meter.initiate()
     assert instrument.queries == []
     meter.check_errors()
-    assert instrument.queries == [":SYST:ERR?"]
+    assert instrument.queries == [":SYST:ERR:ALL?"]
 
 
 def test_query_timeout_does_not_issue_error_query_into_pending_response():
