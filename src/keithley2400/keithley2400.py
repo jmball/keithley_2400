@@ -212,23 +212,7 @@ class keithley2400:
             return self._instr.read().strip()
         raise RuntimeError("not connected")
 
-    @property
-    def data_format(self) -> str:
-        """Reading transfer format: ASC, REAL,32, or SREAL (binary is GPIB only)."""
-        return self._query(":FORM:DATA?")
-
-    @data_format.setter
-    def data_format(self, value: str) -> None:
-        self._write(f":FORM:DATA {value}")
-
-    @property
-    def byte_order(self) -> str:
-        """Binary transfer byte order: NORM (big endian) or SWAP."""
-        return self._query(":FORM:BORD?")
-
-    @byte_order.setter
-    def byte_order(self, value: str) -> None:
-        self._write(f":FORM:BORD {value}")
+    # Validation helpers
 
     @staticmethod
     def _verify_positive_finite(value: float) -> None:
@@ -250,20 +234,93 @@ class keithley2400:
         if value not in choices:
             raise ValueError("value must be one of " + ", ".join(sorted(choices)))
 
-    def read_error(self) -> str:
-        """Read and remove the oldest error, retaining the raw instrument text."""
-        return self._query(":SYST:ERR?")
+    @staticmethod
+    def _verify_setup_location(value: int) -> None:
+        if not 0 <= value <= 4:
+            raise ValueError("setup location must be from 0 through 4")
 
-    def check_errors(self) -> None:
-        """Drain the error queue and raise RuntimeError containing its raw messages."""
-        errors = []
-        while True:
-            error = self.read_error()
-            if int(error.split(",", 1)[0]) == 0:
-                break
-            errors.append(error)
-        if errors:
-            raise RuntimeError("\n".join(errors))
+    @staticmethod
+    def _verify_range(value: float | str, low: float, high: float) -> None:
+        if isinstance(value, str):
+            keithley2400._verify_choice(
+                value, ("MIN", "MINIMUM", "MAX", "MAXIMUM", "DEF", "DEFAULT")
+            )
+            return
+        if not math.isfinite(value) or not low <= value <= high:
+            raise ValueError("value must be finite and within the documented range")
+
+    @staticmethod
+    def _verify_limit_index(index: int) -> None:
+        if (
+            isinstance(index, bool)
+            or not isinstance(index, int)
+            or not 1 <= index <= 12
+        ):
+            raise ValueError("limit index must be from 1 through 12")
+
+    @staticmethod
+    def _verify_numeric_limit_index(index: int) -> None:
+        keithley2400._verify_limit_index(index)
+        if index in (1, 4):
+            raise ValueError(
+                "numeric thresholds apply to limits 2, 3, and 5 through 12"
+            )
+
+    # Format commands
+
+    @property
+    def data_format(self) -> str:
+        """Reading transfer format: ASC, REAL,32, or SREAL (binary is GPIB only)."""
+        return self._query(":FORM:DATA?")
+
+    @data_format.setter
+    def data_format(self, value: str) -> None:
+        self._write(f":FORM:DATA {value}")
+
+    @property
+    def byte_order(self) -> str:
+        """Binary transfer byte order: NORM (big endian) or SWAP."""
+        return self._query(":FORM:BORD?")
+
+    @byte_order.setter
+    def byte_order(self, value: str) -> None:
+        self._write(f":FORM:BORD {value}")
+
+    @property
+    def status_register_format(self) -> str:
+        return self._query(":FORM:SREG?").upper()
+
+    @status_register_format.setter
+    def status_register_format(self, value: str) -> None:
+        self._write(":FORM:SREG " + value)
+
+    @property
+    def digital_format(self) -> str:
+        return self._query(":FORM:SOUR2?").upper()
+
+    @digital_format.setter
+    def digital_format(self, value: str) -> None:
+        self._write(":FORM:SOUR2 " + value)
+
+    @property
+    def data_elements(self) -> str:
+        return self._query(":FORM:ELEM?")
+
+    @data_elements.setter
+    def data_elements(self, value: str | Sequence[str]) -> None:
+        elements = ",".join(value) if not isinstance(value, str) else value
+        self._write(":FORM:ELEM " + elements)
+
+    @property
+    def calculation_elements(self) -> str:
+        return self._query(":FORM:ELEM:CALC?")
+
+    @calculation_elements.setter
+    def calculation_elements(self, value: str | Sequence[str]) -> None:
+        self._write(
+            ":FORM:ELEM:CALC "
+            + (",".join(value) if not isinstance(value, str) else value)
+        )
 
     # Identity, status, and common commands
 
@@ -447,6 +504,21 @@ class keithley2400:
     @auto_line_frequency.setter
     def auto_line_frequency(self, enabled: bool) -> None:
         self._write_bool(":SYST:LFR:AUTO", enabled)
+
+    def read_error(self) -> str:
+        """Read and remove the oldest error, retaining the raw instrument text."""
+        return self._query(":SYST:ERR?")
+
+    def check_errors(self) -> None:
+        """Drain the error queue and raise RuntimeError containing its raw messages."""
+        errors = []
+        while True:
+            error = self.read_error()
+            if int(error.split(",", 1)[0]) == 0:
+                break
+            errors.append(error)
+        if errors:
+            raise RuntimeError("\n".join(errors))
 
     def read_errors(self) -> str:
         """Read and remove all queued errors in one query."""
@@ -783,21 +855,6 @@ class keithley2400:
     @property
     def sense_data_latest(self) -> tuple[float, ...]:
         return self._query_floats(":SENS:DATA?")
-
-    @staticmethod
-    def _verify_setup_location(value: int) -> None:
-        if not 0 <= value <= 4:
-            raise ValueError("setup location must be from 0 through 4")
-
-    @staticmethod
-    def _verify_range(value: float | str, low: float, high: float) -> None:
-        if isinstance(value, str):
-            keithley2400._verify_choice(
-                value, ("MIN", "MINIMUM", "MAX", "MAXIMUM", "DEF", "DEFAULT")
-            )
-            return
-        if not math.isfinite(value) or not low <= value <= high:
-            raise ValueError("value must be finite and within the documented range")
 
     @staticmethod
     def _tokens(value: str) -> tuple[str, ...]:
@@ -2128,7 +2185,7 @@ class keithley2400:
     def sense_resistance_nplc_default(self) -> float:
         return self._query_float(":SENS:RES:NPLC? DEF")
 
-    # Calculation, display, format, and status settings
+    # Calculation, display, and status settings
 
     @property
     def limit_feed(self) -> str:
@@ -2164,42 +2221,6 @@ class keithley2400:
     @display_digits.setter
     def display_digits(self, value: int | str) -> None:
         self._write_int(":DISP:DIG", value)
-
-    @property
-    def status_register_format(self) -> str:
-        return self._query(":FORM:SREG?").upper()
-
-    @status_register_format.setter
-    def status_register_format(self, value: str) -> None:
-        self._write(":FORM:SREG " + value)
-
-    @property
-    def digital_format(self) -> str:
-        return self._query(":FORM:SOUR2?").upper()
-
-    @digital_format.setter
-    def digital_format(self, value: str) -> None:
-        self._write(":FORM:SOUR2 " + value)
-
-    @property
-    def data_elements(self) -> str:
-        return self._query(":FORM:ELEM?")
-
-    @data_elements.setter
-    def data_elements(self, value: str | Sequence[str]) -> None:
-        elements = ",".join(value) if not isinstance(value, str) else value
-        self._write(":FORM:ELEM " + elements)
-
-    @property
-    def calculation_elements(self) -> str:
-        return self._query(":FORM:ELEM:CALC?")
-
-    @calculation_elements.setter
-    def calculation_elements(self, value: str | Sequence[str]) -> None:
-        self._write(
-            ":FORM:ELEM:CALC "
-            + (",".join(value) if not isinstance(value, str) else value)
-        )
 
     def preset_status(self) -> None:
         self._write(":STAT:PRES")
@@ -2496,23 +2517,6 @@ class keithley2400:
         return self._query_int(":STAT:QUES:EVEN?")
 
     # Indexed limit tests
-
-    @staticmethod
-    def _verify_limit_index(index: int) -> None:
-        if (
-            isinstance(index, bool)
-            or not isinstance(index, int)
-            or not 1 <= index <= 12
-        ):
-            raise ValueError("limit index must be from 1 through 12")
-
-    @staticmethod
-    def _verify_numeric_limit_index(index: int) -> None:
-        keithley2400._verify_limit_index(index)
-        if index in (1, 4):
-            raise ValueError(
-                "numeric thresholds apply to limits 2, 3, and 5 through 12"
-            )
 
     def get_limit_enabled(self, index: int) -> bool:
         self._verify_limit_index(index)
