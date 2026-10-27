@@ -208,9 +208,8 @@ class keithley2400:
         ):
             raise ValueError("limit index must be from 1 through 12")
 
-    @staticmethod
-    def _verify_numeric_limit_index(index: int) -> None:
-        keithley2400._verify_limit_index(index)
+    def _verify_numeric_limit_index(self, index: int) -> None:
+        self._verify_limit_index(index)
         if index in (1, 4):
             raise ValueError(
                 "numeric thresholds apply to limits 2, 3, and 5 through 12"
