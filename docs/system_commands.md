@@ -28,7 +28,7 @@ reading data as a flat tuple of floats. `read()`, `fetch()`, `measure()`, and
 
 Status register commands in Section 15 and Table 18-8 are mapped in the
 calculation command reference. `read_error()` and `check_errors()` are supplied
-by the shared communication base. The additional system error queue variants
+by the instrument class. The additional system error queue variants
 are `read_errors()` (`:SYST:ERR:ALL?`), `error_count`, `read_error_code()`,
 `read_error_codes()`, and `clear_errors()`.
 

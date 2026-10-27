@@ -1,7 +1,7 @@
 # Calculation, display, format, and status commands
 
 This page maps the command headers in the Keithley 2400 Series User’s Manual,
-Section 18 Tables 18-1 through 18-3 and 18-8, to `CalculationCommands`. SCPI
+Section 18 Tables 18-1 through 18-3 and 18-8, to direct members on `keithley2400`. SCPI
 headers below use manual spelling; the Python API sends documented short forms.
 `data_format` and `byte_order` belong to the main driver because its reading
 protocol owns binary parsing.
@@ -10,16 +10,16 @@ protocol owns binary parsing.
 
 | Documented command | Python API |
 | --- | --- |
-| `:CALCulate[1]:MATH[:EXPRession] <form>` / `:MATH?` | `math.expression` |
-| `:CALCulate[1]:MATH:CATalog?` | `math.catalog` |
-| `:CALCulate[1]:MATH:NAME <name>` / `?` | `math.name` |
-| `:CALCulate[1]:MATH[:DEFine] <form>` | `math.expression` setter (canonical `EXPRession`) |
-| `:CALCulate[1]:MATH:DELete[:SEL] <name>` | `math.delete(name)` |
-| `:CALCulate[1]:MATH:DELete:ALL` | `math.delete_all()` |
-| `:CALCulate[1]:MATH:UNITs <name>` / `?` | `math.units` |
-| `:CALCulate[1]:STATe <b>` / `?` | `math.enabled` |
-| `:CALCulate[1]:DATA?` | `math.data` |
-| `:CALCulate[1]:DATA:LATest?` | `math.latest` |
+| `:CALCulate[1]:MATH[:EXPRession] <form>` / `:MATH?` | `math_expression` |
+| `:CALCulate[1]:MATH:CATalog?` | `math_catalog` |
+| `:CALCulate[1]:MATH:NAME <name>` / `?` | `math_name` |
+| `:CALCulate[1]:MATH[:DEFine] <form>` | `math_expression` setter (canonical `EXPRession`) |
+| `:CALCulate[1]:MATH:DELete[:SEL] <name>` | `delete_math_expression(name)` |
+| `:CALCulate[1]:MATH:DELete:ALL` | `delete_all_math_expressions()` |
+| `:CALCulate[1]:MATH:UNITs <name>` / `?` | `math_units` |
+| `:CALCulate[1]:STATe <b>` / `?` | `math_enabled` |
+| `:CALCulate[1]:DATA?` | `math_data` |
+| `:CALCulate[1]:DATA:LATest?` | `math_latest` |
 
 The built-in math names (POWER, OFFCOMPOHM, VOLTCOEF, VARALPHA, and `%DEV`)
 and the user-expression grammar are supplied unchanged to the instrument. `%DEV`
@@ -33,28 +33,28 @@ sin cos tan exp` operators.
 | Documented command | Python API |
 | --- | --- |
 | `:CALCulate2:FEED <name>` / `?` | `limit_feed` |
-| `:CALCulate2:NULL:OFFSet <NRf>` / `?` | `relative.offset` |
-| `:CALCulate2:NULL:STATe <b>` / `?` | `relative.enabled` |
-| `:CALCulate2:NULL:ACQuire` | `relative.acquire()` |
+| `:CALCulate2:NULL:OFFSet <NRf>` / `?` | `relative_offset` |
+| `:CALCulate2:NULL:STATe <b>` / `?` | `relative_enabled` |
+| `:CALCulate2:NULL:ACQuire` | `acquire_relative()` |
 | `:CALCulate2:DATA?` / `:DATA:LATest?` | `limit_data`, `limit_latest` |
-| `:CALCulate2:LIMit[1]:COMPliance:FAIL <name>` / `?` | `limit(1).compliance_fail_condition` |
-| `:CALCulate2:LIMit[1]:COMPliance:SOURce2 <NRf\|NDN>` / `?` | `limit(1).fail_pattern` |
-| `:CALCulate2:LIMit[1]:STATe <b>` / `?`; `:FAIL?` | `limit(1).enabled`; `limit(1).failed` |
-| `:CALCulate2:LIMit2,3,5…12:UPPer[:DATA] <n>` / `?` | `limit(index).upper` |
-| `:CALCulate2:LIMit2,3,5…12:LOWer[:DATA] <n>` / `?` | `limit(index).lower` |
-| `:CALCulate2:LIMit2,3,5…12:UPPer:SOURce2 <NRf\|NDN>` / `?` | `limit(index).upper_fail_pattern` |
-| `:CALCulate2:LIMit2,3,5…12:LOWer:SOURce2 <NRf\|NDN>` / `?` | `limit(index).fail_pattern` |
-| `:CALCulate2:LIMit2,3,5…12:PASS:SOURce2 <NRf\|NDN>` / `?` | `limit(index).pass_pattern` |
-| `:CALCulate2:LIMit2,3,4,5…12:STATe <b>` / `?`; `:FAIL?` | `limit(index).enabled`; `limit(index).failed` |
-| `:CALCulate2:LIMit4:SOURce2 <NRf\|NDN>` / `?` | `limit(4).fail_pattern` |
-| `:CALCulate2:CLIMits:PASS:SOURce2 <NRf\|NDN>` / `?`; summary Table 18-1 p18-7: `:CALCulate2:PASS:SOURce2` | `composite_limits.pass_pattern` |
-| `:CALCulate2:CLIMits:FAIL:SOURce2 <NRf\|NDN>` / `?`; summary Table 18-1 p18-7: `:CALCulate2:FAIL:SOURce2` | `composite_limits.fail_pattern` |
-| `:CALCulate2:CLIMits:PASS:SMLocation <NRf\|NEXT>` / `?` | `composite_limits.pass_memory_location` |
-| `:CALCulate2:CLIMits:FAIL:SMLocation <NRf\|NEXT>` / `?` | `composite_limits.fail_memory_location` |
-| `:CALCulate2:CLIMits:MODE <name>` / `?` | `composite_limits.mode` |
-| `:CALCulate2:CLIMits:BCONtrol <name>` / `?` | `composite_limits.bin_control` |
-| `:CALCulate2:CLEar[:IMMediate]` | `composite_limits.clear()` |
-| `:CALCulate2:CLEar:AUTO <b>` / `?` | `composite_limits.auto_clear` |
+| `:CALCulate2:LIMit[1]:COMPliance:FAIL <name>` / `?` | `limit1_compliance_fail_condition` |
+| `:CALCulate2:LIMit[1]:COMPliance:SOURce2 <NRf\|NDN>` / `?` | `get_limit_fail_pattern(1)`, `set_limit_fail_pattern(1, value)` |
+| `:CALCulate2:LIMit[1]:STATe <b>` / `?`; `:FAIL?` | `get_limit_enabled(1)`, `set_limit_enabled(1, value)`; `get_limit_failed(1)` |
+| `:CALCulate2:LIMit2,3,5…12:UPPer[:DATA] <n>` / `?` | `get_limit_upper(index)`, `set_limit_upper(index, value)` |
+| `:CALCulate2:LIMit2,3,5…12:LOWer[:DATA] <n>` / `?` | `get_limit_lower(index)`, `set_limit_lower(index, value)` |
+| `:CALCulate2:LIMit2,3,5…12:UPPer:SOURce2 <NRf\|NDN>` / `?` | `get_limit_upper_fail_pattern(index)`, `set_limit_upper_fail_pattern(index, value)` |
+| `:CALCulate2:LIMit2,3,5…12:LOWer:SOURce2 <NRf\|NDN>` / `?` | `get_limit_fail_pattern(index)`, `set_limit_fail_pattern(index, value)` |
+| `:CALCulate2:LIMit2,3,5…12:PASS:SOURce2 <NRf\|NDN>` / `?` | `get_limit_pass_pattern(index)`, `set_limit_pass_pattern(index, value)` |
+| `:CALCulate2:LIMit2,3,4,5…12:STATe <b>` / `?`; `:FAIL?` | `get_limit_enabled(index)`, `set_limit_enabled(index, value)`; `get_limit_failed(index)` |
+| `:CALCulate2:LIMit4:SOURce2 <NRf\|NDN>` / `?` | `get_limit_fail_pattern(4)`, `set_limit_fail_pattern(4, value)` |
+| `:CALCulate2:CLIMits:PASS:SOURce2 <NRf\|NDN>` / `?`; summary Table 18-1 p18-7: `:CALCulate2:PASS:SOURce2` | `composite_limit_pass_pattern` |
+| `:CALCulate2:CLIMits:FAIL:SOURce2 <NRf\|NDN>` / `?`; summary Table 18-1 p18-7: `:CALCulate2:FAIL:SOURce2` | `composite_limit_fail_pattern` |
+| `:CALCulate2:CLIMits:PASS:SMLocation <NRf\|NEXT>` / `?` | `composite_limit_pass_memory_location` |
+| `:CALCulate2:CLIMits:FAIL:SMLocation <NRf\|NEXT>` / `?` | `composite_limit_fail_memory_location` |
+| `:CALCulate2:CLIMits:MODE <name>` / `?` | `composite_limit_mode` |
+| `:CALCulate2:CLIMits:BCONtrol <name>` / `?` | `composite_limit_bin_control` |
+| `:CALCulate2:CLEar[:IMMediate]` | `clear_composite_limits()` |
+| `:CALCulate2:CLEar:AUTO <b>` / `?` | `composite_limit_auto_clear` |
 
 Limits 2, 3, and 5 through 12 expose numeric thresholds as documented;
 Limit 4 is the contact-check test and has a bit pattern and state/result but no
@@ -72,18 +72,18 @@ on p18-39–42 give them under CLIMits, which is the command path used here.
 
 | Documented command | Python API |
 | --- | --- |
-| `:CALCulate3:FORMat <name>` / `?` | `calc3.statistic` |
-| `:CALCulate3:DATA?` | `calc3.data` |
+| `:CALCulate3:FORMat <name>` / `?` | `statistics_function` |
+| `:CALCulate3:DATA?` | `statistics_data` |
 | `:DISPlay:ENABle <b>` / `?` | `display_enabled` |
 | `:DISPlay:CNDisplay` | `display_source_measure()` |
-| `:DISPlay[:WINDow[1]]:TEXT:DATA <a>` / `?` | `display_top.text` |
-| `:DISPlay[:WINDow[1]]:TEXT:STATe <b>` / `?` | `display_top.text_enabled` |
-| `:DISPlay[:WINDow[1]]:DATA?` | `display_top.data` |
-| `:DISPlay[:WINDow[1]]:ATTRibutes?` | `display_top.attributes` |
-| `:DISPlay:WINDow2:TEXT:DATA <a>` / `?` | `display_bottom.text` |
-| `:DISPlay:WINDow2:TEXT:STATe <b>` / `?` | `display_bottom.text_enabled` |
-| `:DISPlay:WINDow2:DATA?` | `display_bottom.data` |
-| `:DISPlay:WINDow2:ATTRibutes?` | `display_bottom.attributes` |
+| `:DISPlay[:WINDow[1]]:TEXT:DATA <a>` / `?` | `display_top_text` |
+| `:DISPlay[:WINDow[1]]:TEXT:STATe <b>` / `?` | `display_top_text_enabled` |
+| `:DISPlay[:WINDow[1]]:DATA?` | `display_top_data` |
+| `:DISPlay[:WINDow[1]]:ATTRibutes?` | `display_top_attributes` |
+| `:DISPlay:WINDow2:TEXT:DATA <a>` / `?` | `display_bottom_text` |
+| `:DISPlay:WINDow2:TEXT:STATe <b>` / `?` | `display_bottom_text_enabled` |
+| `:DISPlay:WINDow2:DATA?` | `display_bottom_data` |
+| `:DISPlay:WINDow2:ATTRibutes?` | `display_bottom_attributes` |
 | `:DISPlay:DIGits <n>` / `?` | `display_digits` |
 
 CALC3 supports MEAN, SDEViation, MAXimum, MINimum, and PKPK. The display
@@ -110,15 +110,15 @@ VOLTage, CURRent, RESistance, TIME, STATus and CALC, TIME, STATus respectively.
 
 | Documented command | Python API |
 | --- | --- |
-| `:STATus:MEASurement:ENABle <mask>` / `?` | `measurement_status.enable` |
-| `:STATus:MEASurement:CONDition?` | `measurement_status.condition` |
-| `:STATus:MEASurement[:EVENt]?` | `measurement_status.read_event()` |
-| `:STATus:OPERation:ENABle <mask>` / `?` | `operation_status.enable` |
-| `:STATus:OPERation:CONDition?` | `operation_status.condition` |
-| `:STATus:OPERation[:EVENt]?` | `operation_status.read_event()` |
-| `:STATus:QUEStionable:ENABle <mask>` / `?` | `questionable_status.enable` |
-| `:STATus:QUEStionable:CONDition?` | `questionable_status.condition` |
-| `:STATus:QUEStionable[:EVENt]?` | `questionable_status.read_event()` |
+| `:STATus:MEASurement:ENABle <mask>` / `?` | `measurement_status_enable` |
+| `:STATus:MEASurement:CONDition?` | `measurement_status_condition` |
+| `:STATus:MEASurement[:EVENt]?` | `read_measurement_status_event()` |
+| `:STATus:OPERation:ENABle <mask>` / `?` | `operation_status_enable` |
+| `:STATus:OPERation:CONDition?` | `operation_status_condition` |
+| `:STATus:OPERation[:EVENt]?` | `read_operation_status_event()` |
+| `:STATus:QUEStionable:ENABle <mask>` / `?` | `questionable_status_enable` |
+| `:STATus:QUEStionable:CONDition?` | `questionable_status_condition` |
+| `:STATus:QUEStionable[:EVENt]?` | `read_questionable_status_event()` |
 | `:STATus:PRESet` | `preset_status()` |
 | `:STATus:QUEue:ENABle <list>` / `?` | `error_queue_enabled` |
 | `:STATus:QUEue:DISable <list>` / `?` | `error_queue_disabled` |

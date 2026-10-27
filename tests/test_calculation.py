@@ -16,15 +16,15 @@ def test_math_expression_catalog_state_and_data_contracts():
             ":CALC:DATA:LAT?": "1.25,0.5",
         }
     )
-    assert meter.math.catalog == '"POWER","PER_DEV"'
-    assert meter.math.name == '"PER_DEV"'
-    assert meter.math.expression == "(VOLT + CURR)"
-    assert meter.math.enabled is True
-    assert meter.math.latest == (1.25, 0.5)
-    meter.math.name = "PER_DEV"
-    meter.math.expression = "((RES - 10e3) / 10e3) * 100"
-    meter.math.delete("PER_DEV")
-    meter.math.delete_all()
+    assert meter.math_catalog == '"POWER","PER_DEV"'
+    assert meter.math_name == '"PER_DEV"'
+    assert meter.math_expression == "(VOLT + CURR)"
+    assert meter.math_enabled is True
+    assert meter.math_latest == (1.25, 0.5)
+    meter.math_name = "PER_DEV"
+    meter.math_expression = "((RES - 10e3) / 10e3) * 100"
+    meter.delete_math_expression("PER_DEV")
+    meter.delete_all_math_expressions()
     assert meter.writes == [
         ':CALC:MATH:NAME "PER_DEV"',
         ":CALC:MATH:EXPR ((RES - 10e3) / 10e3) * 100",
@@ -42,15 +42,15 @@ def test_indexed_limit_families_contact_check_and_composite_sorting():
             ":CALC2:CLIM:PASS:SOUR2?": "#H0F",
         }
     )
-    assert meter.limit(4).failed is True
-    assert meter.limit(5).upper == 2.5
-    assert meter.composite_limits.pass_pattern == 15
-    meter.limit(12).upper = 3.25
-    meter.limit(1).compliance_fail_condition = "OUT"
-    meter.composite_limits.mode = "SORT"
-    meter.composite_limits.pass_memory_location = "NEXT"
-    meter.composite_limits.auto_clear = False
-    meter.composite_limits.clear()
+    assert meter.get_limit_failed(4) is True
+    assert meter.get_limit_upper(5) == 2.5
+    assert meter.composite_limit_pass_pattern == 15
+    meter.set_limit_upper(12, 3.25)
+    meter.limit1_compliance_fail_condition = "OUT"
+    meter.composite_limit_mode = "SORT"
+    meter.composite_limit_pass_memory_location = "NEXT"
+    meter.composite_limit_auto_clear = False
+    meter.clear_composite_limits()
     assert meter.writes == [
         ":CALC2:LIM12:UPP 3.25",
         ":CALC2:LIM:COMP:FAIL OUT",
@@ -60,9 +60,9 @@ def test_indexed_limit_families_contact_check_and_composite_sorting():
         ":CALC2:CLIM:CLE",
     ]
     with pytest.raises(ValueError):
-        meter.limit(13)
-    with pytest.raises(AttributeError):
-        _ = meter.limit(4).upper
+        meter.get_limit_enabled(13)
+    with pytest.raises(ValueError):
+        _ = meter.get_limit_upper(4)
 
 
 def test_display_format_and_status_register_command_contracts():
@@ -74,16 +74,16 @@ def test_display_format_and_status_register_command_contracts():
             ":STAT:QUES:EVEN?": "16",
         }
     )
-    assert meter.display_top.attributes == "0"
-    assert meter.operation_status.condition == 10
-    assert meter.questionable_status.read_event() == 16
-    meter.display_bottom.text = "Ready"
+    assert meter.display_top_attributes == "0"
+    assert meter.operation_status_condition == 10
+    assert meter.read_questionable_status_event() == 16
+    meter.display_bottom_text = "Ready"
     meter.display_digits = 7
     meter.status_register_format = "HEX"
     meter.digital_format = "BIN"
     meter.data_elements = ("VOLT", "CURR", "STAT")
     meter.calculation_elements = "CALC,TIME"
-    meter.measurement_status.enable = 7
+    meter.measurement_status_enable = 7
     meter.error_queue_enabled = (-110, -222)
     meter.preset_status()
     meter.clear_status_errors()

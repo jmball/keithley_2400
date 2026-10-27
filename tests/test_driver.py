@@ -93,22 +93,16 @@ def test_connect_only_configures_communication_and_forwards_options():
     instrument = FakeSerialInstrument()
     manager = FakeManager(instrument)
     meter = keithley2400()
-
     meter.connect(
         "serial_alias",
         resource_manager=manager,
         baud_rate=19200,
         read_termination="\r\n",
     )
-
     assert manager.calls == [
         (
             "serial_alias",
-            {
-                "encoding": "ascii",
-                "read_termination": "\r\n",
-                "baud_rate": 19200,
-            },
+            {"encoding": "ascii", "read_termination": "\r\n", "baud_rate": 19200},
         )
     ]
     assert instrument.write_termination == "\r"
@@ -121,7 +115,6 @@ def test_gpib_connection_sets_lf_without_sending_commands():
     instrument = FakeGpibInstrument()
     meter = keithley2400()
     meter.connect("GPIB0::24::INSTR", resource_manager=FakeManager(instrument))
-
     assert instrument.write_termination == instrument.read_termination == "\n"
     assert instrument.writes == instrument.queries == []
     meter.disconnect()
@@ -175,6 +168,7 @@ def test_tcp_socket_preserves_adapter_terminations_and_reads_variable_data():
 
 
 def test_communication_configuration_failure_closes_open_instrument():
+
     class BrokenInstrument(FakeInstrument):
         @property
         def write_termination(self):
@@ -227,10 +221,8 @@ def test_write_checks_error_queue_and_raises_raw_instrument_messages():
     instrument.responses[":SYST:ERR?"] = deque([*errors, '0,"No error"'])
     meter = keithley2400()
     meter._instr = instrument
-
     with pytest.raises(RuntimeError) as caught:
         meter.output_enabled = True
-
     assert str(caught.value) == "\n".join(errors)
     assert instrument.writes == [":OUTP:STAT ON"]
     assert instrument.queries == [":SYST:ERR?"] * 3
@@ -241,7 +233,6 @@ def test_error_checks_can_be_deferred_for_async_trigger_sequence():
     meter = keithley2400()
     meter._instr = instrument
     meter.check_errors_after_write = False
-
     meter.initiate()
     assert instrument.queries == []
     meter.check_errors()
@@ -254,10 +245,8 @@ def test_query_timeout_does_not_issue_error_query_into_pending_response():
     instrument.responses[":READ?"] = timeout
     meter = keithley2400()
     meter._instr = instrument
-
     with pytest.raises(pyvisa.errors.VisaIOError) as caught:
         meter.read()
-
     assert caught.value is timeout
     assert instrument.queries == [":FORM:DATA?", ":READ?"]
 
@@ -265,12 +254,11 @@ def test_query_timeout_does_not_issue_error_query_into_pending_response():
 @pytest.mark.parametrize("order,packing", [("NORM", ">"), ("SWAP", "<")])
 def test_gpib_binary_read_uses_eoi_and_restores_termination(order, packing):
     instrument = FakeGpibInstrument()
-    value = struct.unpack(">f", b"\x3f\x80\x0a\x00")[0]
+    value = struct.unpack(">f", b"?\x80\n\x00")[0]
     instrument.block = b"#0" + struct.pack(packing + "2f", value, -0.5) + b"\n"
     instrument.responses.update({":FORM:DATA?": "REAL,32", ":FORM:BORD?": order})
     meter = keithley2400()
     meter._instr = instrument
-
     assert meter.read() == (value, -0.5)
     assert instrument.read_termination == "\n"
     assert instrument.writes == [":READ?"]
@@ -300,9 +288,7 @@ def test_basic_example_uses_public_settings_and_switches_output_off(
     manager = ContextManager(instrument)
     monkeypatch.setattr(pyvisa, "ResourceManager", lambda: manager)
     example = runpy.run_path("examples/basic.py")
-
     example["main"]()
-
     assert "0.001" in capsys.readouterr().out
     assert instrument.writes[-1] == ":OUTP:STAT OFF"
     assert instrument.closed

@@ -1,6 +1,6 @@
 # Keithley 2400
 
-A PyVISA driver exposing the SCPI commands in the manufacturer's [Series 2400 SourceMeter User's Manual, revision K](https://download.tek.com/manual/2400S-900-01_K-Sep2011_User.pdf). Settings and read-only values are properties; actions are methods. Command implementations are grouped by subsystem, with shared endpoints for voltage/current sources, sense functions, limit tests, display windows, and status registers.
+A PyVISA driver exposing the SCPI commands in the manufacturer's [Series 2400 SourceMeter User's Manual, revision K](https://download.tek.com/manual/2400S-900-01_K-Sep2011_User.pdf). The implementation is one ordinary instrument class in [keithley2400.py](src/keithley2400/keithley2400.py), grouped by subsystem with comments. Settings and read-only values are direct properties; actions are methods. Indexed limit tests take an index argument. There are no subsystem base classes or intermediate source, sense, display, or status objects.
 
 Install with `pip install .`. A VISA backend and suitable adapter support are required; PyVISA-py with serial support is included.
 
@@ -36,7 +36,7 @@ with closing(pyvisa.ResourceManager()) as manager, keithley2400() as meter:
         meter.trigger_count = 1
         meter.trigger_delay = 0
         meter.source_function = "VOLT"
-        meter.source_voltage.mode = "FIX"
+        meter.source_voltage_mode = "FIX"
         meter.source_level = 1.0
         meter.sense_functions = ("CURR",)
         meter.sense_auto_range = True
@@ -50,9 +50,25 @@ with closing(pyvisa.ResourceManager()) as manager, keithley2400() as meter:
 
 The [basic example](examples/basic.py) puts the single-read recipe in an application function. There is no `configure_single_read()` method in the driver. `connect()` configures communication only: it sends no instrument commands, does not abort operations, and does not change measurement settings. Context exit closes only the instrument session; it leaves the resource manager and output control to the caller.
 
-`source_function` selects VOLT, CURR, or the documented MEM source-memory mode. It does not also select FIX/SWE/LIST mode: configure that independently on `source_voltage.mode` or `source_current.mode`. The source level/range conveniences infer voltage or current from `source_function` and reject MEM, which has no single level or range. Source and sense function validation are separate. `sense_auto_range` infers the sole enabled sense function; with concurrent measurements, use `sense_voltage.auto_range`, `sense_current.auto_range`, or `sense_resistance.auto_range`. NPLC is global across functions, as documented. Documented numeric query modifiers are exposed as `*_limits` properties returning `NumericLimits(minimum, maximum, default)`; for example, `meter.source_voltage.level_limits`.
+`source_function` selects VOLT, CURR, or the documented MEM source-memory mode. It does not also select FIX/SWE/LIST mode: configure that independently on `source_voltage_mode` or `source_current_mode`. The source level/range conveniences infer voltage or current from `source_function` and reject MEM, which has no single level or range. Source and sense function validation are separate. `sense_auto_range` infers the sole enabled sense function; with concurrent measurements, use `sense_voltage_auto_range`, `sense_current_auto_range`, or `sense_resistance_auto_range`. NPLC is global across functions, as documented. Documented numeric query modifiers are exposed as `*_limits` properties returning `NumericLimits(minimum, maximum, default)`; for example, `meter.source_voltage_level_limits`.
 
 `read()`, `fetch()`, `measure()`, and the trace/calculation data properties return flat tuples of floats matching the selected element layout and reading count. No fixed five-field `Measurement` type is imposed. Numeric overflow (`+9.9E37`) and unavailable-value (`+9.91E37`) sentinels are preserved. Reading data respects `data_format` and, for GPIB IEEE-754 binary blocks, `byte_order`. The guide allows binary reading transfers only over GPIB; serial-to-Ethernet bridges use ASCII.
+
+## Direct API names
+
+The former nested API has been replaced with direct members on the instrument:
+
+```python
+meter.source_voltage_mode = "FIX"
+meter.source_voltage_level = 1.0
+meter.sense_current_auto_range = True
+meter.display_top_text = "Ready"
+meter.measurement_status_enable = 7
+meter.set_limit_upper(2, 1.5)
+upper = meter.get_limit_upper(2)
+```
+
+Indexed limit getters and setters use `get_limit_*` and `set_limit_*` methods; no limit object is created. Source and sense property commands contain their explicit VOLT, CURR, or RES path. The existing `source_level`, `source_range`, and `sense_auto_range` conveniences still query the selected function when needed; they do not cache instrument configuration.
 
 ## Communication
 

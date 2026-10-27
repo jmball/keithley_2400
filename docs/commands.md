@@ -18,7 +18,9 @@ The API covers the command headers in sections 16–18 and the SCPI additions in
 | Appendix F: contact-check limits and sequence 2 | [Calculation](calculation_commands.md), [System](system_commands.md) |
 | Appendix G: MEP SCPI controls | [System](system_commands.md) |
 
-The reading transport owns these format settings:
+All command implementations live in `src/keithley2400/keithley2400.py`. Documentation is split by subsystem for lookup; the library itself has no subsystem base classes or endpoint objects.
+
+Reading format settings are direct properties:
 
 | Command | Python API |
 | --- | --- |
@@ -37,13 +39,13 @@ These properties return `NumericLimits(minimum, maximum, default)` by issuing th
 
 | Manual numeric command | Metadata property |
 | --- | --- |
-| Source current/voltage level, range, triggered level, start, stop, center, span, step | `source_current` / `source_voltage`: `level_limits`, `range_limits`, `triggered_level_limits`, `start_limits`, `stop_limits`, `center_limits`, `span_limits`, `step_limits` |
-| Sense current/voltage/resistance range and NPLC | `sense_current` / `sense_voltage` / `sense_resistance`: `range_limits`, `nplc_limits` |
+| Source current/voltage level, range, triggered level, start, stop, center, span, step | `source_current_level_limits`, `source_current_range_limits`, `source_current_triggered_level_limits`, `source_current_start_limits`, `source_current_stop_limits`, `source_current_center_limits`, `source_current_span_limits`, `source_current_step_limits`, and the corresponding `source_voltage_*` properties |
+| Sense current/voltage/resistance range and NPLC | `sense_current_range_limits`, `sense_current_nplc_limits`, and the corresponding `sense_voltage_*` / `sense_resistance_*` properties |
 | Sense current/voltage compliance | `current_compliance_limits`, `voltage_compliance_limits` |
 | Sense averaging count | `average_count_limits` |
 | Source voltage protection, delay, sweep points, pulse width/delay | `voltage_protection_limits`, `source_delay_limits`, `sweep_points_limits`, `pulse_width_limits`, `pulse_delay_limits` |
 | Digital auto-clear delay | `digital_clear_delay_limits` |
-| Numeric limit-test upper/lower thresholds (2,3,5–12) | `limit(index).upper_limits`, `limit(index).lower_limits` |
+| Numeric limit-test upper/lower thresholds (2,3,5–12) | `get_limit_upper_limits(index)`, `get_limit_lower_limits(index)` |
 | Display digits | `display_digits_limits` |
 | Trace points | `trace_points_limits` |
 | Arm/trigger count, arm timer, trigger delay | `arm_count_limits`, `trigger_count_limits`, `arm_timer_limits`, `trigger_delay_limits` |

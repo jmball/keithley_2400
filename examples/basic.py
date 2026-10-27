@@ -27,8 +27,8 @@ def main() -> None:
             meter.abort()
             configure_single_read(meter)
             meter.source_function = "VOLT"
-            meter.source_voltage.mode = "FIX"
-            meter.source_voltage.range = 20
+            meter.source_voltage_mode = "FIX"
+            meter.source_voltage_range = 20
             meter.source_level = 1.0
             meter.sense_functions = ("CURR",)
             meter.current_compliance = 0.01
