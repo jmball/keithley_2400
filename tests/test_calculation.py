@@ -99,3 +99,10 @@ def test_display_format_and_status_register_command_contracts():
         ":STAT:PRES",
         ":STAT:QUE:CLE",
     ]
+
+
+def test_indexed_limit_parameter_default_is_a_single_query():
+    meter = RecordingMeter({":CALC2:LIM5:UPP? DEF": "1"})
+    assert meter.get_limit_upper_default(5) == 1
+    assert meter.queries == [":CALC2:LIM5:UPP? DEF"]
+    assert meter.writes == []

@@ -88,7 +88,7 @@ are `read_errors()` (`:SYST:ERR:ALL?`), `error_count`, `read_error_code()`,
 | `:TRACe:CLEar` | `clear_trace()` | Clears stored readings. |
 | `:TRACe:FREE?` | `trace_memory` | Returns available and reserved bytes. |
 | `:TRACe:POINts`, query | `trace_points` | Buffer size, 1–2500. |
-| `:TRACe:POINts? MINimum/MAXimum/DEFault` | `trace_points_limits` | Instrument-reported limits/default. |
+| `:TRACe:POINts? MINimum/MAXimum/DEFault` | `trace_points_minimum`, `trace_points_maximum`, `trace_points_default` | Instrument-reported limits/default. |
 | `:TRACe:POINts:ACTual?` | `trace_points_actual` | Number of stored reading arrays. |
 | `:TRACe:FEED`, query | `trace_feed` | SENSe[1], CALCulate[1], or CALCulate2. |
 | `:TRACe:FEED:CONTrol`, query | `trace_control` | NEXT or NEVer. |

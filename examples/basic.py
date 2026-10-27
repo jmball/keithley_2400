@@ -30,7 +30,9 @@ def main() -> None:
             meter.source_voltage_mode = "FIX"
             meter.source_voltage_range = 20
             meter.source_level = 1.0
-            meter.sense_functions = ("CURR",)
+            meter.sense_concurrent = False
+            meter.disable_all_sense_functions()
+            meter.enable_sense_functions(("CURR",))
             meter.current_compliance = 0.01
             meter.output_enabled = True
             _voltage, current, _resistance, _timestamp, _status = meter.read()

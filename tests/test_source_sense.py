@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import runpy
+
 import pytest
 
 from tests.fakes import RecordingMeter
@@ -77,7 +79,7 @@ def test_nplc_is_global_and_validates_positive_finite_numbers():
     assert smu.writes == [":SENS:VOLT:NPLC 1"]
 
 
-def test_numeric_limits_query_the_instruments_documented_modifiers():
+def test_numeric_parameter_queries_are_independent():
     smu = RecordingMeter(
         {
             ":SOUR:VOLT:LEV? MIN": "-210",
@@ -85,15 +87,23 @@ def test_numeric_limits_query_the_instruments_documented_modifiers():
             ":SOUR:VOLT:LEV? DEF": "0",
         }
     )
-    limits = smu.source_voltage_level_limits
-    assert (limits.minimum, limits.maximum, limits.default) == (-210, 210, 0)
+    assert smu.source_voltage_level_minimum == -210
+    assert smu.queries == [":SOUR:VOLT:LEV? MIN"]
+    assert smu.source_voltage_level_maximum == 210
+    assert smu.source_voltage_level_default == 0
+    assert smu.queries == [
+        ":SOUR:VOLT:LEV? MIN",
+        ":SOUR:VOLT:LEV? MAX",
+        ":SOUR:VOLT:LEV? DEF",
+    ]
     smu.source_voltage_level = "MIN"
     assert smu.writes == [":SOUR:VOLT:LEV MIN"]
 
 
-def test_multiple_sense_functions_enable_concurrent_measurements():
+def test_advanced_configuration_example_selects_multiple_sense_functions():
     meter = RecordingMeter()
-    meter.sense_functions = ("VOLT", "CURR")
+    example = runpy.run_path("examples/advanced_configuration.py")
+    example["configure_sense_functions"](meter, ("VOLT", "CURR"))
     assert meter.writes == [
         ":SENS:FUNC:CONC ON",
         ":SENS:FUNC:OFF:ALL",
@@ -119,3 +129,10 @@ def test_direct_current_and_resistance_properties_use_explicit_commands():
     meter.source_current_mode = "LIST"
     meter.sense_resistance_range_upper_limit = 1000
     assert meter.writes == [":SOUR:CURR:MODE LIST", ":SENS:RES:RANG:AUTO:ULIM 1000"]
+
+
+def test_sense_functions_readback_only_queries_enabled_functions():
+    meter = RecordingMeter({":SENS:FUNC?": '"VOLT:DC","CURR:DC"'})
+    assert meter.sense_functions == ("VOLT", "CURR")
+    assert meter.queries == [":SENS:FUNC?"]
+    assert meter.writes == []

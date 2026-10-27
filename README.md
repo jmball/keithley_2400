@@ -38,7 +38,9 @@ with closing(pyvisa.ResourceManager()) as manager, keithley2400() as meter:
         meter.source_function = "VOLT"
         meter.source_voltage_mode = "FIX"
         meter.source_level = 1.0
-        meter.sense_functions = ("CURR",)
+        meter.sense_concurrent = False
+        meter.disable_all_sense_functions()
+        meter.enable_sense_functions(("CURR",))
         meter.sense_auto_range = True
         meter.current_compliance = 0.01
         meter.output_enabled = True
@@ -48,9 +50,9 @@ with closing(pyvisa.ResourceManager()) as manager, keithley2400() as meter:
         meter.output_enabled = False
 ```
 
-The [basic example](examples/basic.py) puts the single-read recipe in an application function. There is no `configure_single_read()` method in the driver. `connect()` configures communication only: it sends no instrument commands, does not abort operations, and does not change measurement settings. Context exit closes only the instrument session; it leaves the resource manager and output control to the caller.
+The [basic example](examples/basic.py) puts the single-read recipe in an application function. The [advanced configuration example](examples/advanced_configuration.py) composes concurrency, disabling, and enabling commands to replace the enabled sense functions. In the driver, `sense_functions` is read-only; callers explicitly use `sense_concurrent`, `disable_all_sense_functions()`, and `enable_sense_functions()` when configuring measurements. There is no `configure_single_read()` method in the driver. `connect()` configures communication only: it sends no instrument commands, does not abort operations, and does not change measurement settings. Context exit closes only the instrument session; it leaves the resource manager and output control to the caller.
 
-`source_function` selects VOLT, CURR, or the documented MEM source-memory mode. It does not also select FIX/SWE/LIST mode: configure that independently on `source_voltage_mode` or `source_current_mode`. The source level/range conveniences infer voltage or current from `source_function` and reject MEM, which has no single level or range. Source and sense function validation are separate. `sense_auto_range` infers the sole enabled sense function; with concurrent measurements, use `sense_voltage_auto_range`, `sense_current_auto_range`, or `sense_resistance_auto_range`. NPLC is global across functions, as documented. Documented numeric query modifiers are exposed as `*_limits` properties returning `NumericLimits(minimum, maximum, default)`; for example, `meter.source_voltage_level_limits`.
+`source_function` selects VOLT, CURR, or the documented MEM source-memory mode. It does not also select FIX/SWE/LIST mode: configure that independently on `source_voltage_mode` or `source_current_mode`. The source level/range conveniences infer voltage or current from `source_function` and reject MEM, which has no single level or range. Source and sense function validation are separate. `sense_auto_range` infers the sole enabled sense function; with concurrent measurements, use `sense_voltage_auto_range`, `sense_current_auto_range`, or `sense_resistance_auto_range`. NPLC is global across functions, as documented. Documented numeric query modifiers have independent read-only properties ending in `_minimum`, `_maximum`, or `_default`; for example, `meter.source_voltage_level_minimum` sends only `:SOUR:VOLT:LEV? MIN`. Indexed limit thresholds have corresponding methods such as `get_limit_upper_default(index)`.
 
 `read()`, `fetch()`, `measure()`, and the trace/calculation data properties return flat tuples of floats matching the selected element layout and reading count. No fixed five-field `Measurement` type is imposed. Numeric overflow (`+9.9E37`) and unavailable-value (`+9.91E37`) sentinels are preserved. Reading data respects `data_format` and, for GPIB IEEE-754 binary blocks, `byte_order`. The guide allows binary reading transfers only over GPIB; serial-to-Ethernet bridges use ASCII.
 

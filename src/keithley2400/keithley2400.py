@@ -6,7 +6,7 @@ import math
 import struct
 from collections.abc import Collection, Sequence
 from types import TracebackType
-from typing import Any, NamedTuple, TypeVar
+from typing import Any, TypeVar
 
 import pyvisa
 from pyvisa.resources import (
@@ -15,15 +15,6 @@ from pyvisa.resources import (
     SerialInstrument,
     TCPIPSocket,
 )
-
-
-class NumericLimits(NamedTuple):
-    """Instrument-reported minimum, maximum, and reset-default parameters."""
-
-    minimum: float
-    maximum: float
-    default: float
-
 
 _T = TypeVar("_T", bound="keithley2400")
 
@@ -160,13 +151,6 @@ class keithley2400:
 
     def _query_floats(self, command: str) -> tuple[float, ...]:
         return tuple((float(value) for value in self._query(command).split(",")))
-
-    def _query_limits(self, command: str) -> NumericLimits:
-        return NumericLimits(
-            self._query_float(f"{command}? MIN"),
-            self._query_float(f"{command}? MAX"),
-            self._query_float(f"{command}? DEF"),
-        )
 
     def _write_int(self, command: str, value: int | str) -> None:
         self._write(f"{command} {value}")
@@ -835,24 +819,64 @@ class keithley2400:
         self._write(f"{command} {','.join(normalized)}")
 
     @property
-    def trace_points_limits(self) -> NumericLimits:
-        return self._query_limits(":TRAC:POIN")
+    def trace_points_minimum(self) -> float:
+        return self._query_float(":TRAC:POIN? MIN")
 
     @property
-    def arm_count_limits(self) -> NumericLimits:
-        return self._query_limits(":ARM:COUN")
+    def trace_points_maximum(self) -> float:
+        return self._query_float(":TRAC:POIN? MAX")
 
     @property
-    def trigger_count_limits(self) -> NumericLimits:
-        return self._query_limits(":TRIG:COUN")
+    def trace_points_default(self) -> float:
+        return self._query_float(":TRAC:POIN? DEF")
 
     @property
-    def trigger_delay_limits(self) -> NumericLimits:
-        return self._query_limits(":TRIG:DEL")
+    def arm_count_minimum(self) -> float:
+        return self._query_float(":ARM:COUN? MIN")
 
     @property
-    def arm_timer_limits(self) -> NumericLimits:
-        return self._query_limits(":ARM:TIM")
+    def arm_count_maximum(self) -> float:
+        return self._query_float(":ARM:COUN? MAX")
+
+    @property
+    def arm_count_default(self) -> float:
+        return self._query_float(":ARM:COUN? DEF")
+
+    @property
+    def trigger_count_minimum(self) -> float:
+        return self._query_float(":TRIG:COUN? MIN")
+
+    @property
+    def trigger_count_maximum(self) -> float:
+        return self._query_float(":TRIG:COUN? MAX")
+
+    @property
+    def trigger_count_default(self) -> float:
+        return self._query_float(":TRIG:COUN? DEF")
+
+    @property
+    def trigger_delay_minimum(self) -> float:
+        return self._query_float(":TRIG:DEL? MIN")
+
+    @property
+    def trigger_delay_maximum(self) -> float:
+        return self._query_float(":TRIG:DEL? MAX")
+
+    @property
+    def trigger_delay_default(self) -> float:
+        return self._query_float(":TRIG:DEL? DEF")
+
+    @property
+    def arm_timer_minimum(self) -> float:
+        return self._query_float(":ARM:TIM? MIN")
+
+    @property
+    def arm_timer_maximum(self) -> float:
+        return self._query_float(":ARM:TIM? MAX")
+
+    @property
+    def arm_timer_default(self) -> float:
+        return self._query_float(":ARM:TIM? DEF")
 
     # Source, sense, and output settings
 
@@ -915,6 +939,7 @@ class keithley2400:
 
     @property
     def sense_functions(self) -> tuple[str, ...]:
+        """Enabled measurement functions (read-only)."""
         raw = self._query(":SENS:FUNC?").replace('"', "")
         return tuple(
             (
@@ -923,19 +948,6 @@ class keithley2400:
                 if part.strip()
             )
         )
-
-    @sense_functions.setter
-    def sense_functions(self, functions: Sequence[str]) -> None:
-        if isinstance(functions, str):
-            functions = (functions,)
-        normalized = tuple(
-            dict.fromkeys((self._normalize_sense_function(x) for x in functions))
-        )
-        if not normalized:
-            raise ValueError("at least one sense function is required")
-        self.sense_concurrent = len(normalized) > 1
-        self.disable_all_sense_functions()
-        self.enable_sense_functions(normalized)
 
     @property
     def sense_concurrent(self) -> bool:
@@ -1376,40 +1388,112 @@ class keithley2400:
         self._write_float(":SOUR2:CLE:AUTO:DEL", value)
 
     @property
-    def current_compliance_limits(self) -> NumericLimits:
-        return self._query_limits(":SENS:CURR:PROT")
+    def current_compliance_minimum(self) -> float:
+        return self._query_float(":SENS:CURR:PROT? MIN")
 
     @property
-    def voltage_compliance_limits(self) -> NumericLimits:
-        return self._query_limits(":SENS:VOLT:PROT")
+    def current_compliance_maximum(self) -> float:
+        return self._query_float(":SENS:CURR:PROT? MAX")
 
     @property
-    def average_count_limits(self) -> NumericLimits:
-        return self._query_limits(":SENS:AVER:COUN")
+    def current_compliance_default(self) -> float:
+        return self._query_float(":SENS:CURR:PROT? DEF")
 
     @property
-    def voltage_protection_limits(self) -> NumericLimits:
-        return self._query_limits(":SOUR:VOLT:PROT")
+    def voltage_compliance_minimum(self) -> float:
+        return self._query_float(":SENS:VOLT:PROT? MIN")
 
     @property
-    def source_delay_limits(self) -> NumericLimits:
-        return self._query_limits(":SOUR:DEL")
+    def voltage_compliance_maximum(self) -> float:
+        return self._query_float(":SENS:VOLT:PROT? MAX")
 
     @property
-    def sweep_points_limits(self) -> NumericLimits:
-        return self._query_limits(":SOUR:SWE:POIN")
+    def voltage_compliance_default(self) -> float:
+        return self._query_float(":SENS:VOLT:PROT? DEF")
 
     @property
-    def pulse_width_limits(self) -> NumericLimits:
-        return self._query_limits(":SOUR:PULS:WIDT")
+    def average_count_minimum(self) -> float:
+        return self._query_float(":SENS:AVER:COUN? MIN")
 
     @property
-    def pulse_delay_limits(self) -> NumericLimits:
-        return self._query_limits(":SOUR:PULS:DEL")
+    def average_count_maximum(self) -> float:
+        return self._query_float(":SENS:AVER:COUN? MAX")
 
     @property
-    def digital_clear_delay_limits(self) -> NumericLimits:
-        return self._query_limits(":SOUR2:CLE:AUTO:DEL")
+    def average_count_default(self) -> float:
+        return self._query_float(":SENS:AVER:COUN? DEF")
+
+    @property
+    def voltage_protection_minimum(self) -> float:
+        return self._query_float(":SOUR:VOLT:PROT? MIN")
+
+    @property
+    def voltage_protection_maximum(self) -> float:
+        return self._query_float(":SOUR:VOLT:PROT? MAX")
+
+    @property
+    def voltage_protection_default(self) -> float:
+        return self._query_float(":SOUR:VOLT:PROT? DEF")
+
+    @property
+    def source_delay_minimum(self) -> float:
+        return self._query_float(":SOUR:DEL? MIN")
+
+    @property
+    def source_delay_maximum(self) -> float:
+        return self._query_float(":SOUR:DEL? MAX")
+
+    @property
+    def source_delay_default(self) -> float:
+        return self._query_float(":SOUR:DEL? DEF")
+
+    @property
+    def sweep_points_minimum(self) -> float:
+        return self._query_float(":SOUR:SWE:POIN? MIN")
+
+    @property
+    def sweep_points_maximum(self) -> float:
+        return self._query_float(":SOUR:SWE:POIN? MAX")
+
+    @property
+    def sweep_points_default(self) -> float:
+        return self._query_float(":SOUR:SWE:POIN? DEF")
+
+    @property
+    def pulse_width_minimum(self) -> float:
+        return self._query_float(":SOUR:PULS:WIDT? MIN")
+
+    @property
+    def pulse_width_maximum(self) -> float:
+        return self._query_float(":SOUR:PULS:WIDT? MAX")
+
+    @property
+    def pulse_width_default(self) -> float:
+        return self._query_float(":SOUR:PULS:WIDT? DEF")
+
+    @property
+    def pulse_delay_minimum(self) -> float:
+        return self._query_float(":SOUR:PULS:DEL? MIN")
+
+    @property
+    def pulse_delay_maximum(self) -> float:
+        return self._query_float(":SOUR:PULS:DEL? MAX")
+
+    @property
+    def pulse_delay_default(self) -> float:
+        return self._query_float(":SOUR:PULS:DEL? DEF")
+
+    @property
+    def digital_clear_delay_minimum(self) -> float:
+        return self._query_float(":SOUR2:CLE:AUTO:DEL? MIN")
+
+    @property
+    def digital_clear_delay_maximum(self) -> float:
+        return self._query_float(":SOUR2:CLE:AUTO:DEL? MAX")
+
+    @property
+    def digital_clear_delay_default(self) -> float:
+        return self._query_float(":SOUR2:CLE:AUTO:DEL? DEF")
 
     # Source voltage
 
@@ -1536,36 +1620,100 @@ class keithley2400:
         self._write_int(":SOUR:LIST:VOLT:STAR", value)
 
     @property
-    def source_voltage_level_limits(self) -> NumericLimits:
-        return self._query_limits(":SOUR:VOLT:LEV")
+    def source_voltage_level_minimum(self) -> float:
+        return self._query_float(":SOUR:VOLT:LEV? MIN")
 
     @property
-    def source_voltage_range_limits(self) -> NumericLimits:
-        return self._query_limits(":SOUR:VOLT:RANG")
+    def source_voltage_level_maximum(self) -> float:
+        return self._query_float(":SOUR:VOLT:LEV? MAX")
 
     @property
-    def source_voltage_triggered_level_limits(self) -> NumericLimits:
-        return self._query_limits(":SOUR:VOLT:LEV:TRIG")
+    def source_voltage_level_default(self) -> float:
+        return self._query_float(":SOUR:VOLT:LEV? DEF")
 
     @property
-    def source_voltage_start_limits(self) -> NumericLimits:
-        return self._query_limits(":SOUR:VOLT:STAR")
+    def source_voltage_range_minimum(self) -> float:
+        return self._query_float(":SOUR:VOLT:RANG? MIN")
 
     @property
-    def source_voltage_stop_limits(self) -> NumericLimits:
-        return self._query_limits(":SOUR:VOLT:STOP")
+    def source_voltage_range_maximum(self) -> float:
+        return self._query_float(":SOUR:VOLT:RANG? MAX")
 
     @property
-    def source_voltage_center_limits(self) -> NumericLimits:
-        return self._query_limits(":SOUR:VOLT:CENT")
+    def source_voltage_range_default(self) -> float:
+        return self._query_float(":SOUR:VOLT:RANG? DEF")
 
     @property
-    def source_voltage_span_limits(self) -> NumericLimits:
-        return self._query_limits(":SOUR:VOLT:SPAN")
+    def source_voltage_triggered_level_minimum(self) -> float:
+        return self._query_float(":SOUR:VOLT:LEV:TRIG? MIN")
 
     @property
-    def source_voltage_step_limits(self) -> NumericLimits:
-        return self._query_limits(":SOUR:VOLT:STEP")
+    def source_voltage_triggered_level_maximum(self) -> float:
+        return self._query_float(":SOUR:VOLT:LEV:TRIG? MAX")
+
+    @property
+    def source_voltage_triggered_level_default(self) -> float:
+        return self._query_float(":SOUR:VOLT:LEV:TRIG? DEF")
+
+    @property
+    def source_voltage_start_minimum(self) -> float:
+        return self._query_float(":SOUR:VOLT:STAR? MIN")
+
+    @property
+    def source_voltage_start_maximum(self) -> float:
+        return self._query_float(":SOUR:VOLT:STAR? MAX")
+
+    @property
+    def source_voltage_start_default(self) -> float:
+        return self._query_float(":SOUR:VOLT:STAR? DEF")
+
+    @property
+    def source_voltage_stop_minimum(self) -> float:
+        return self._query_float(":SOUR:VOLT:STOP? MIN")
+
+    @property
+    def source_voltage_stop_maximum(self) -> float:
+        return self._query_float(":SOUR:VOLT:STOP? MAX")
+
+    @property
+    def source_voltage_stop_default(self) -> float:
+        return self._query_float(":SOUR:VOLT:STOP? DEF")
+
+    @property
+    def source_voltage_center_minimum(self) -> float:
+        return self._query_float(":SOUR:VOLT:CENT? MIN")
+
+    @property
+    def source_voltage_center_maximum(self) -> float:
+        return self._query_float(":SOUR:VOLT:CENT? MAX")
+
+    @property
+    def source_voltage_center_default(self) -> float:
+        return self._query_float(":SOUR:VOLT:CENT? DEF")
+
+    @property
+    def source_voltage_span_minimum(self) -> float:
+        return self._query_float(":SOUR:VOLT:SPAN? MIN")
+
+    @property
+    def source_voltage_span_maximum(self) -> float:
+        return self._query_float(":SOUR:VOLT:SPAN? MAX")
+
+    @property
+    def source_voltage_span_default(self) -> float:
+        return self._query_float(":SOUR:VOLT:SPAN? DEF")
+
+    @property
+    def source_voltage_step_minimum(self) -> float:
+        return self._query_float(":SOUR:VOLT:STEP? MIN")
+
+    @property
+    def source_voltage_step_maximum(self) -> float:
+        return self._query_float(":SOUR:VOLT:STEP? MAX")
+
+    @property
+    def source_voltage_step_default(self) -> float:
+        return self._query_float(":SOUR:VOLT:STEP? DEF")
 
     # Source current
 
@@ -1692,36 +1840,100 @@ class keithley2400:
         self._write_int(":SOUR:LIST:CURR:STAR", value)
 
     @property
-    def source_current_level_limits(self) -> NumericLimits:
-        return self._query_limits(":SOUR:CURR:LEV")
+    def source_current_level_minimum(self) -> float:
+        return self._query_float(":SOUR:CURR:LEV? MIN")
 
     @property
-    def source_current_range_limits(self) -> NumericLimits:
-        return self._query_limits(":SOUR:CURR:RANG")
+    def source_current_level_maximum(self) -> float:
+        return self._query_float(":SOUR:CURR:LEV? MAX")
 
     @property
-    def source_current_triggered_level_limits(self) -> NumericLimits:
-        return self._query_limits(":SOUR:CURR:LEV:TRIG")
+    def source_current_level_default(self) -> float:
+        return self._query_float(":SOUR:CURR:LEV? DEF")
 
     @property
-    def source_current_start_limits(self) -> NumericLimits:
-        return self._query_limits(":SOUR:CURR:STAR")
+    def source_current_range_minimum(self) -> float:
+        return self._query_float(":SOUR:CURR:RANG? MIN")
 
     @property
-    def source_current_stop_limits(self) -> NumericLimits:
-        return self._query_limits(":SOUR:CURR:STOP")
+    def source_current_range_maximum(self) -> float:
+        return self._query_float(":SOUR:CURR:RANG? MAX")
 
     @property
-    def source_current_center_limits(self) -> NumericLimits:
-        return self._query_limits(":SOUR:CURR:CENT")
+    def source_current_range_default(self) -> float:
+        return self._query_float(":SOUR:CURR:RANG? DEF")
 
     @property
-    def source_current_span_limits(self) -> NumericLimits:
-        return self._query_limits(":SOUR:CURR:SPAN")
+    def source_current_triggered_level_minimum(self) -> float:
+        return self._query_float(":SOUR:CURR:LEV:TRIG? MIN")
 
     @property
-    def source_current_step_limits(self) -> NumericLimits:
-        return self._query_limits(":SOUR:CURR:STEP")
+    def source_current_triggered_level_maximum(self) -> float:
+        return self._query_float(":SOUR:CURR:LEV:TRIG? MAX")
+
+    @property
+    def source_current_triggered_level_default(self) -> float:
+        return self._query_float(":SOUR:CURR:LEV:TRIG? DEF")
+
+    @property
+    def source_current_start_minimum(self) -> float:
+        return self._query_float(":SOUR:CURR:STAR? MIN")
+
+    @property
+    def source_current_start_maximum(self) -> float:
+        return self._query_float(":SOUR:CURR:STAR? MAX")
+
+    @property
+    def source_current_start_default(self) -> float:
+        return self._query_float(":SOUR:CURR:STAR? DEF")
+
+    @property
+    def source_current_stop_minimum(self) -> float:
+        return self._query_float(":SOUR:CURR:STOP? MIN")
+
+    @property
+    def source_current_stop_maximum(self) -> float:
+        return self._query_float(":SOUR:CURR:STOP? MAX")
+
+    @property
+    def source_current_stop_default(self) -> float:
+        return self._query_float(":SOUR:CURR:STOP? DEF")
+
+    @property
+    def source_current_center_minimum(self) -> float:
+        return self._query_float(":SOUR:CURR:CENT? MIN")
+
+    @property
+    def source_current_center_maximum(self) -> float:
+        return self._query_float(":SOUR:CURR:CENT? MAX")
+
+    @property
+    def source_current_center_default(self) -> float:
+        return self._query_float(":SOUR:CURR:CENT? DEF")
+
+    @property
+    def source_current_span_minimum(self) -> float:
+        return self._query_float(":SOUR:CURR:SPAN? MIN")
+
+    @property
+    def source_current_span_maximum(self) -> float:
+        return self._query_float(":SOUR:CURR:SPAN? MAX")
+
+    @property
+    def source_current_span_default(self) -> float:
+        return self._query_float(":SOUR:CURR:SPAN? DEF")
+
+    @property
+    def source_current_step_minimum(self) -> float:
+        return self._query_float(":SOUR:CURR:STEP? MIN")
+
+    @property
+    def source_current_step_maximum(self) -> float:
+        return self._query_float(":SOUR:CURR:STEP? MAX")
+
+    @property
+    def source_current_step_default(self) -> float:
+        return self._query_float(":SOUR:CURR:STEP? DEF")
 
     # Sense voltage
 
@@ -1764,12 +1976,28 @@ class keithley2400:
         self._write_float(":SENS:VOLT:NPLC", value)
 
     @property
-    def sense_voltage_range_limits(self) -> NumericLimits:
-        return self._query_limits(":SENS:VOLT:RANG")
+    def sense_voltage_range_minimum(self) -> float:
+        return self._query_float(":SENS:VOLT:RANG? MIN")
 
     @property
-    def sense_voltage_nplc_limits(self) -> NumericLimits:
-        return self._query_limits(":SENS:VOLT:NPLC")
+    def sense_voltage_range_maximum(self) -> float:
+        return self._query_float(":SENS:VOLT:RANG? MAX")
+
+    @property
+    def sense_voltage_range_default(self) -> float:
+        return self._query_float(":SENS:VOLT:RANG? DEF")
+
+    @property
+    def sense_voltage_nplc_minimum(self) -> float:
+        return self._query_float(":SENS:VOLT:NPLC? MIN")
+
+    @property
+    def sense_voltage_nplc_maximum(self) -> float:
+        return self._query_float(":SENS:VOLT:NPLC? MAX")
+
+    @property
+    def sense_voltage_nplc_default(self) -> float:
+        return self._query_float(":SENS:VOLT:NPLC? DEF")
 
     # Sense current
 
@@ -1828,12 +2056,28 @@ class keithley2400:
         self._write_float(":SENS:CURR:RANG:HOLD:DEL", value)
 
     @property
-    def sense_current_range_limits(self) -> NumericLimits:
-        return self._query_limits(":SENS:CURR:RANG")
+    def sense_current_range_minimum(self) -> float:
+        return self._query_float(":SENS:CURR:RANG? MIN")
 
     @property
-    def sense_current_nplc_limits(self) -> NumericLimits:
-        return self._query_limits(":SENS:CURR:NPLC")
+    def sense_current_range_maximum(self) -> float:
+        return self._query_float(":SENS:CURR:RANG? MAX")
+
+    @property
+    def sense_current_range_default(self) -> float:
+        return self._query_float(":SENS:CURR:RANG? DEF")
+
+    @property
+    def sense_current_nplc_minimum(self) -> float:
+        return self._query_float(":SENS:CURR:NPLC? MIN")
+
+    @property
+    def sense_current_nplc_maximum(self) -> float:
+        return self._query_float(":SENS:CURR:NPLC? MAX")
+
+    @property
+    def sense_current_nplc_default(self) -> float:
+        return self._query_float(":SENS:CURR:NPLC? DEF")
 
     # Sense resistance
 
@@ -1880,12 +2124,28 @@ class keithley2400:
         self._write_float(":SENS:RES:NPLC", value)
 
     @property
-    def sense_resistance_range_limits(self) -> NumericLimits:
-        return self._query_limits(":SENS:RES:RANG")
+    def sense_resistance_range_minimum(self) -> float:
+        return self._query_float(":SENS:RES:RANG? MIN")
 
     @property
-    def sense_resistance_nplc_limits(self) -> NumericLimits:
-        return self._query_limits(":SENS:RES:NPLC")
+    def sense_resistance_range_maximum(self) -> float:
+        return self._query_float(":SENS:RES:RANG? MAX")
+
+    @property
+    def sense_resistance_range_default(self) -> float:
+        return self._query_float(":SENS:RES:RANG? DEF")
+
+    @property
+    def sense_resistance_nplc_minimum(self) -> float:
+        return self._query_float(":SENS:RES:NPLC? MIN")
+
+    @property
+    def sense_resistance_nplc_maximum(self) -> float:
+        return self._query_float(":SENS:RES:NPLC? MAX")
+
+    @property
+    def sense_resistance_nplc_default(self) -> float:
+        return self._query_float(":SENS:RES:NPLC? DEF")
 
     # Calculation, display, format, and status settings
 
@@ -1992,8 +2252,16 @@ class keithley2400:
         self._write(":STAT:QUE:CLE")
 
     @property
-    def display_digits_limits(self) -> NumericLimits:
-        return self._query_limits(":DISP:DIG")
+    def display_digits_minimum(self) -> float:
+        return self._query_float(":DISP:DIG? MIN")
+
+    @property
+    def display_digits_maximum(self) -> float:
+        return self._query_float(":DISP:DIG? MAX")
+
+    @property
+    def display_digits_default(self) -> float:
+        return self._query_float(":DISP:DIG? DEF")
 
     # Math
 
@@ -2334,10 +2602,26 @@ class keithley2400:
     def limit1_compliance_fail_condition(self, value: str) -> None:
         self._write(f":CALC2:LIM:COMP:FAIL {value}")
 
-    def get_limit_upper_limits(self, index: int) -> NumericLimits:
+    def get_limit_upper_minimum(self, index: int) -> float:
         self._verify_numeric_limit_index(index)
-        return self._query_limits(f":CALC2:LIM{index}:UPP")
+        return self._query_float(f":CALC2:LIM{index}:UPP? MIN")
 
-    def get_limit_lower_limits(self, index: int) -> NumericLimits:
+    def get_limit_upper_maximum(self, index: int) -> float:
         self._verify_numeric_limit_index(index)
-        return self._query_limits(f":CALC2:LIM{index}:LOW")
+        return self._query_float(f":CALC2:LIM{index}:UPP? MAX")
+
+    def get_limit_upper_default(self, index: int) -> float:
+        self._verify_numeric_limit_index(index)
+        return self._query_float(f":CALC2:LIM{index}:UPP? DEF")
+
+    def get_limit_lower_minimum(self, index: int) -> float:
+        self._verify_numeric_limit_index(index)
+        return self._query_float(f":CALC2:LIM{index}:LOW? MIN")
+
+    def get_limit_lower_maximum(self, index: int) -> float:
+        self._verify_numeric_limit_index(index)
+        return self._query_float(f":CALC2:LIM{index}:LOW? MAX")
+
+    def get_limit_lower_default(self, index: int) -> float:
+        self._verify_numeric_limit_index(index)
+        return self._query_float(f":CALC2:LIM{index}:LOW? DEF")

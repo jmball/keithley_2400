@@ -35,19 +35,28 @@ The manual specifies no calibration-service command set. Calibration procedures 
 
 ## Numeric query modifiers
 
-These properties return `NumericLimits(minimum, maximum, default)` by issuing the documented `? MIN`, `? MAX`, and `? DEF` queries. They do not change settings.
+Each read-only member ending in `_minimum`, `_maximum`, or `_default` issues exactly one documented query: `? MIN`, `? MAX`, or `? DEF`, respectively. It returns the numeric response directly and does not request the other values.
 
-| Manual numeric command | Metadata property |
+```python
+minimum = meter.source_voltage_level_minimum
+maximum = meter.source_voltage_level_maximum
+reset_default = meter.source_voltage_level_default
+```
+
+The following table lists the prefixes to which those three suffixes apply:
+
+| Manual numeric command | Member prefix |
 | --- | --- |
-| Source current/voltage level, range, triggered level, start, stop, center, span, step | `source_current_level_limits`, `source_current_range_limits`, `source_current_triggered_level_limits`, `source_current_start_limits`, `source_current_stop_limits`, `source_current_center_limits`, `source_current_span_limits`, `source_current_step_limits`, and the corresponding `source_voltage_*` properties |
-| Sense current/voltage/resistance range and NPLC | `sense_current_range_limits`, `sense_current_nplc_limits`, and the corresponding `sense_voltage_*` / `sense_resistance_*` properties |
-| Sense current/voltage compliance | `current_compliance_limits`, `voltage_compliance_limits` |
-| Sense averaging count | `average_count_limits` |
-| Source voltage protection, delay, sweep points, pulse width/delay | `voltage_protection_limits`, `source_delay_limits`, `sweep_points_limits`, `pulse_width_limits`, `pulse_delay_limits` |
-| Digital auto-clear delay | `digital_clear_delay_limits` |
-| Numeric limit-test upper/lower thresholds (2,3,5–12) | `get_limit_upper_limits(index)`, `get_limit_lower_limits(index)` |
-| Display digits | `display_digits_limits` |
-| Trace points | `trace_points_limits` |
-| Arm/trigger count, arm timer, trigger delay | `arm_count_limits`, `trigger_count_limits`, `arm_timer_limits`, `trigger_delay_limits` |
+| Source current/voltage level, range, triggered level, start, stop, center, span, step | `source_current_level`, `source_current_range`, `source_current_triggered_level`, `source_current_start`, `source_current_stop`, `source_current_center`, `source_current_span`, `source_current_step`, and the corresponding `source_voltage_*` prefixes |
+| Sense current/voltage/resistance range and NPLC | `sense_current_range`, `sense_current_nplc`, and the corresponding `sense_voltage_*` / `sense_resistance_*` prefixes |
+| Sense current/voltage compliance | `current_compliance`, `voltage_compliance` |
+| Sense averaging count | `average_count` |
+| Source voltage protection, delay, sweep points, pulse width/delay | `voltage_protection`, `source_delay`, `sweep_points`, `pulse_width`, `pulse_delay` |
+| Digital auto-clear delay | `digital_clear_delay` |
+| Display digits | `display_digits` |
+| Trace points | `trace_points` |
+| Arm/trigger count, arm timer, trigger delay | `arm_count`, `trigger_count`, `arm_timer`, `trigger_delay` |
+
+Indexed numeric limit thresholds (2, 3, 5–12) use `get_limit_upper_minimum(index)`, `get_limit_upper_maximum(index)`, and `get_limit_upper_default(index)`, with equivalent `get_limit_lower_*` methods. Each method also performs only its one documented query.
 
 Transfer-format fixtures use the canonical short responses `ASC`, `REAL`/`SREAL`, `NORM`, and `SWAP`. The manual names the allowed parameters but does not explicitly illustrate every query readback spelling. Those readbacks, and the conflicting command spellings noted above, still need hardware confirmation; the driver does not silently try alternate spellings.

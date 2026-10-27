@@ -10,7 +10,8 @@
 | `OUTPut:SMODe` | `output_off_mode` |
 | `ROUTe:TERMinals` | `terminals` |
 | `SENSe:FUNCtion:CONCurrent` | `sense_concurrent` |
-| `SENSe:FUNCtion[:ON]` | `sense_functions`; `enable_sense_functions` |
+| `SENSe:FUNCtion[:ON]?` | `sense_functions` (read-only) |
+| `SENSe:FUNCtion[:ON] <function list>` | `enable_sense_functions(functions)` |
 | `SENSe:FUNCtion:ON:ALL` | `enable_all_sense_functions` |
 | `SENSe:FUNCtion:ON:COUNt?` | `enabled_sense_function_count` |
 | `SENSe:FUNCtion:OFF` | `disable_sense_functions` |
@@ -98,3 +99,5 @@
 `sense_auto_range` infers the sole selected measurement function and raises `ValueError` when several are selected. Use `sense_voltage_auto_range`, `sense_current_auto_range`, or `sense_resistance_auto_range` for concurrent measurement setups. `nplc` is global and uses the documented voltage-path alias. `source_function` selects the source path only; `source_voltage_mode` and `source_current_mode` independently controls FIXed, SWEep, or LIST.
 
 The output-enable trip query returns 1 when output is permitted and 0 when it is blocked (page 18-56). `output_enable_tripped` converts that inverted bit to the usual Python boolean meaning: `True` means output is blocked.
+
+`sense_functions` only reads the enabled functions. Setting concurrency and replacing the enabled set is an application recipe shown in `examples/advanced_configuration.py`, using the individual driver operations.
