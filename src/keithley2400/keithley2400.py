@@ -98,14 +98,14 @@ class keithley2400:
         return self._instr is not None
 
     @property
-    def timeout(self) -> float:
+    def timeout_ms(self) -> float:
         """VISA I/O timeout in milliseconds; float("inf") disables the timeout."""
         if self._instr is not None:
             return self._instr.timeout
         raise RuntimeError("not connected")
 
-    @timeout.setter
-    def timeout(self, value: float) -> None:
+    @timeout_ms.setter
+    def timeout_ms(self, value: float) -> None:
         if self._instr is not None:
             self._instr.timeout = value
         else:

@@ -106,8 +106,29 @@ Calibration service commands are not specified in this user/programming referenc
 
 Tests exercise representative protocol contracts, binary framing/byte order, lifecycle behavior, and automatic error/timeout handling. Physical instruments and Ethernet adapters have not been tested.
 
-The `timeout` property exposes the current VISA I/O timeout in milliseconds.
-Use `meter.timeout = 60_000` for a longer wait, or `float("inf")` to disable
+The `timeout_ms` property exposes the current VISA I/O timeout in milliseconds.
+Use `meter.timeout_ms = 60_000` for a longer wait, or `float("inf")` to disable
 I/O timeouts. This is a session setting and sends no instrument command.
 It can also be supplied to `connect(timeout=...)`. Queries, including
 `wait_complete()`, propagate VISA timeout exceptions without retries.
+
+See [examples/timeouts.py](examples/timeouts.py) for temporary timeout changes
+around self-test, completion waits, buffer transfer, and a `READ?` estimate
+using Appendix A's single-function, auto-zero-enabled timing formula.
+The example's margins and transfer budgets are application choices, not
+manufacturer timing guarantees.
+
+Run an example with a VISA resource name and optional communication settings:
+
+```sh
+uv run python examples/basic.py GPIB0::24::INSTR
+uv run python examples/basic.py ASRL1::INSTR --baud-rate 9600 --read-termination CRLF
+uv run python examples/timeouts.py TCPIP0::adapter-host::4001::SOCKET --read-termination CRLF --write-termination CR
+```
+
+Use `--help` on any example to see its communication options. Terminators must
+match the instrument configuration. The timeout example's `acquisition_factor`
+is an application allowance, not a factor specified by the guide.
+
+The timeout example sets its baseline explicitly with `COMMUNICATION_TIMEOUT_MS = 2_000`;
+it does not accept `--timeout-ms`. Longer operation budgets are shown in the script.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import runpy
 import struct
 from collections import deque
 from typing import Any
@@ -317,9 +318,10 @@ def test_basic_example_uses_public_settings_and_switches_output_off(
     )
     manager = ContextManager(instrument)
     monkeypatch.setattr(pyvisa, "ResourceManager", lambda: manager)
+    monkeypatch.setattr("sys.argv", ["basic.py", "GPIB0::24::INSTR"])
     example = runpy.run_path("examples/basic.py")
     example["main"]()
-    assert "0.001" in capsys.readouterr().out
+    assert "(1.0, 0.001, 9.91e+37, 0.5, 0.0)" in capsys.readouterr().out
     assert instrument.writes[-1] == ":OUTP:STAT OFF"
     assert instrument.closed
 
@@ -341,21 +343,135 @@ def test_invalid_write_parameters_raise_instrument_error(operation):
     assert len(instrument.writes) == 1
 
 
-def test_timeout_exposes_session_setting_without_instrument_commands():
+def test_timeout_ms_exposes_session_setting_without_instrument_commands():
     instrument = FakeInstrument()
     meter = keithley2400()
     meter.connect("GPIB0::24::INSTR", resource_manager=FakeManager(instrument))
-    assert meter.timeout == 2000
-    meter.timeout = 60000
+    assert meter.timeout_ms == 2000
+    meter.timeout_ms = 60000
     assert instrument.timeout == 60000
     instrument.timeout = float("inf")
-    assert meter.timeout == float("inf")
+    assert meter.timeout_ms == float("inf")
     assert instrument.writes == instrument.queries == []
 
 
-def test_timeout_requires_connected_session():
+def test_timeout_ms_requires_connected_session():
     meter = keithley2400()
     with pytest.raises(RuntimeError, match="not connected"):
-        _ = meter.timeout
+        _ = meter.timeout_ms
     with pytest.raises(RuntimeError, match="not connected"):
-        meter.timeout = 60000
+        meter.timeout_ms = 60000
+
+
+def test_timeout_example_uses_estimate_and_restores_session_timeout(monkeypatch):
+    class TimedInstrument(FakeInstrument):
+        def __init__(self):
+            super().__init__()
+            self.query_timeouts: dict[str, float] = {}
+            self.query_history: list[tuple[str, float]] = []
+
+        def query(self, message: str, delay: float | None = None) -> str:
+            self.query_timeouts[message] = self.timeout
+            self.query_history.append((message, self.timeout))
+            return super().query(message, delay)
+
+    instrument = TimedInstrument()
+    instrument.responses.update(
+        {
+            "*TST?": "0",
+            ":SYST:LFR?": "50",
+            ":READ?": "0.001",
+            ":TRAC:DATA?": "0.001",
+            "*OPC?": "1",
+            ":FETC?": "0.001",
+        }
+    )
+    manager = FakeManager(instrument)
+    monkeypatch.setattr(pyvisa, "ResourceManager", lambda: manager)
+    monkeypatch.setattr("sys.argv", ["timeouts.py", "GPIB0::24::INSTR"])
+    example = runpy.run_path("examples/timeouts.py")
+    example["main"]()
+    # Ten readings, 10 PLC at 50 Hz, three A/D conversions per reading;
+    # Appendix A Case I overheads, 2x margin, and 5 s transfer allowance.
+    assert instrument.query_timeouts[":READ?"] == 17253
+    assert instrument.query_timeouts["*OPC?"] == 17253
+    assert instrument.query_timeouts["*TST?"] == 30000
+    assert instrument.query_timeouts[":TRAC:DATA?"] == 30000
+    assert instrument.query_history[-1] == (":SYST:ERR:ALL?", 2000)
+    assert ":ABOR" not in instrument.writes
+    assert ":SYST:CCH OFF" not in instrument.writes
+    assert instrument.timeout == 2000
+    assert instrument.writes[-1] == ":OUTP:STAT OFF"
+    assert instrument.closed
+
+
+@pytest.mark.parametrize(
+    "script", ["basic.py", "advanced_configuration.py", "timeouts.py"]
+)
+def test_examples_parse_serial_communication_arguments(script, monkeypatch):
+    arguments = [
+        script,
+        "ASRL1::INSTR",
+        "--baud-rate",
+        "9600",
+        "--read-termination",
+        "CRLF",
+        "--write-termination",
+        "CR",
+    ]
+    expected = {
+        "baud_rate": 9600,
+        "read_termination": "\r\n",
+        "write_termination": "\r",
+    }
+    if script == "timeouts.py":
+        expected["timeout"] = 2000
+    else:
+        arguments.extend(["--timeout-ms", "5000"])
+        expected["timeout"] = 5000
+    monkeypatch.setattr("sys.argv", arguments)
+    example = runpy.run_path(f"examples/{script}")
+    assert example["parse_args"]() == ("ASRL1::INSTR", expected)
+
+
+def test_completion_example_reports_init_error_after_waiting(monkeypatch):
+    class InitErrorInstrument(FakeInstrument):
+        def write(
+            self,
+            message: str,
+            termination: str | None = None,
+            encoding: str | None = None,
+        ) -> int:
+            if message == ":INIT":
+                self.responses[":SYST:ERR:ALL?"] = deque(
+                    ['-213,"Init ignored"', '0,"No error"']
+                )
+            return super().write(message, termination, encoding)
+
+    instrument = InitErrorInstrument()
+    instrument.responses.update(
+        {
+            "*TST?": "0",
+            ":SYST:LFR?": "50",
+            ":READ?": "0.001",
+            ":TRAC:DATA?": "0.001",
+            "*OPC?": "1",
+        }
+    )
+    monkeypatch.setattr(pyvisa, "ResourceManager", lambda: FakeManager(instrument))
+    monkeypatch.setattr("sys.argv", ["timeouts.py", "GPIB0::24::INSTR"])
+    example = runpy.run_path("examples/timeouts.py")
+    with pytest.raises(RuntimeError, match="Init ignored"):
+        example["main"]()
+    assert instrument.queries[-3:] == ["*OPC?", ":SYST:ERR:ALL?", ":SYST:ERR:ALL?"]
+    assert instrument.timeout == 2000
+
+
+def test_timeout_example_rejects_timeout_argument(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv", ["timeouts.py", "GPIB0::24::INSTR", "--timeout-ms", "5000"]
+    )
+    example = runpy.run_path("examples/timeouts.py")
+    with pytest.raises(SystemExit) as caught:
+        example["parse_args"]()
+    assert caught.value.code == 2
