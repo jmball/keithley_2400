@@ -24,7 +24,16 @@ from keithley2400 import keithley2400
 
 
 def parse_args() -> tuple[str, dict[str, Any]]:
-    """Read VISA resource and communication options from the command line."""
+    """Parse communication settings from the command line.
+
+    Returns
+    -------
+    resource_name : str
+        VISA resource name supplied by the user.
+    communication : dict[str, Any]
+        Keyword arguments for ``connect``, with termination names converted
+        to characters and unspecified options omitted.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("resource", help="VISA resource name")
     parser.add_argument("--baud-rate", type=int, help="serial baud rate")
@@ -45,6 +54,7 @@ def parse_args() -> tuple[str, dict[str, Any]]:
 
 
 def main() -> None:
+    """Run the example using the supplied communication settings."""
     resource_name, communication = parse_args()
     with keithley2400() as smu:
         smu.connect(resource_name, **communication)
