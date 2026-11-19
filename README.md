@@ -30,6 +30,31 @@ Each script's docstring explains its connection options; use `--help` to list
 them. Serial and adapter termination settings must match the instrument.
 Physical instruments and Ethernet adapters have not been tested.
 
+## Virtual instrument
+
+Use `from keithley2400 import virtual_keithley2400` as a hardware-free replacement
+for the hardware class. It has the same public methods, properties, signatures,
+and connection lifecycle. Call `connect("virtual")`; the resource name and any
+supplied resource manager are never used to open hardware. Settings persist
+across disconnect/reconnect. `reset()` restores the virtual instrument defaults.
+
+[The virtual example](examples/virtual_basic.py) demonstrates ordinary usage:
+
+```sh
+uv run python examples/virtual_basic.py
+```
+
+The virtual instrument stores settings, source lists, saved setups, trace data,
+math expressions, measurement limit tests, and error/status queues. Measurements
+return programmed source values and zero for other enabled quantities, preserving
+the selected element order and unavailable-value sentinel. It models no load,
+noise, real acquisition timing, or protection/contact trips.
+Timestamps stay zero. Finite immediate-trigger sequences complete synchronously;
+external-trigger waits raise a VISA timeout immediately, and a pending BUS arm
+can be completed with `trigger_bus()`. Numeric metadata uses model 2400 bounds;
+optional-feature settings are software state rather than hardware capabilities.
+Empty measurement/trace buffers return empty tuples. Self-test always passes.
+
 ## Development
 
 Install the locked environment and run the project checks:
