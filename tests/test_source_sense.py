@@ -109,7 +109,22 @@ def test_advanced_configuration_example_selects_multiple_sense_functions():
 @pytest.mark.parametrize("response,tripped", [("0", True), ("1", False)])
 def test_output_enable_trip_uses_the_manuals_inverted_bit(response, tripped):
     meter = RecordingMeter({":OUTP:ENAB:TRIP?": response})
-    assert meter.output_enable_tripped is tripped
+    assert meter.output_enable_interlock_tripped is tripped
+
+
+def test_output_enable_interlock_uses_the_hardware_accepted_path():
+    # A model 2401 rejects the manual's :OUTP:IENAB spelling with -113.
+    meter = RecordingMeter({":OUTP:ENAB:STAT?": "0"})
+    assert meter.output_enable_interlock_enabled is False
+    meter.output_enable_interlock_enabled = True
+    assert meter.writes == [":OUTP:ENAB:STAT ON"]
+
+
+def test_high_impedance_off_mode_is_sent_in_long_form():
+    # A model 2401 rejects :OUTP:SMOD HIMP with -102 but accepts HIMPEDANCE.
+    meter = RecordingMeter()
+    meter.output_off_mode = "himp"
+    assert meter.writes == [":OUTP:SMOD HIMPEDANCE"]
 
 
 def test_output_state_is_readable():

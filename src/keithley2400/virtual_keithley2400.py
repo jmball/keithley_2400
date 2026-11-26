@@ -25,7 +25,7 @@ _NUMERIC = {
     "trigger_count": (1, 2500, 1),
     "trigger_delay": (0, 999.9999, 0),
     "arm_timer": (0.001, 99999.99, 0.1),
-    "current_compliance": (1e-08, 1.05, 0.001),
+    "current_compliance": (1e-08, 1.05, 105e-6),
     "voltage_compliance": (0.0002, 210, 20),
     "average_count": (1, 100, 10),
     "voltage_protection": (20, 160, 20),
@@ -164,7 +164,7 @@ _DEFAULTS = {
     "contact_check_event_source": "CCH",
     "contact_check_resistance": 2.0,
     "contact_check_timeout": 0.0,
-    "current_compliance": 0.001,
+    "current_compliance": 105e-6,
     "current_range_synchronized": False,
     "data_elements": "VOLT,CURR,RES,TIME,STAT",
     "data_format": "ASC",
@@ -196,9 +196,9 @@ _DEFAULTS = {
     "nplc_caching": False,
     "offset_compensated_ohms": False,
     "operation_status_enable": 0,
-    "output_enable": True,
+    "output_enable_interlock_enabled": False,
     "output_enabled": False,
-    "output_off_mode": "HIMP",
+    "output_off_mode": "NORM",
     "power_on_setup": "RST",
     "pulse_delay": 0.0,
     "pulse_shape": "DC",
@@ -2426,33 +2426,30 @@ class virtual_keithley2400:
     @output_enabled.setter
     def output_enabled(self, value: bool) -> None:
         """Set output enabled."""
-        if value and not self.output_enable:
-            self._error(-221, "Settings conflict")
-            return
         self._set("output_enabled", value)
 
     @property
-    def output_enable(self) -> bool:
-        """Whether the external output-enable input is permitted to enable output.
+    def output_enable_interlock_enabled(self) -> bool:
+        """Whether the external output-enable interlock is enabled.
 
-        Uses the IENABle path in the detailed command reference; the summary table
-        gives a different spelling. This path has not been hardware-verified.
+        The virtual output-enable line is always at logic low, so enabling the
+        interlock never prevents output.
         """
-        return self._get("output_enable")
+        return self._get("output_enable_interlock_enabled")
 
-    @output_enable.setter
-    def output_enable(self, value: bool) -> None:
-        """Set whether the external output-enable input is active."""
-        self._set("output_enable", value)
+    @output_enable_interlock_enabled.setter
+    def output_enable_interlock_enabled(self, value: bool) -> None:
+        """Enable or disable the external output-enable interlock."""
+        self._set("output_enable_interlock_enabled", value)
 
     @property
-    def output_enable_tripped(self) -> bool:
-        """Whether the output-enable input prevents operation (device replies 0)."""
-        return not self.output_enable
+    def output_enable_interlock_tripped(self) -> bool:
+        """Whether the output-enable line prevents output; always False here."""
+        return False
 
     @property
     def output_off_mode(self) -> str:
-        """Output-off behavior: HIMP, NORMAL, ZERO, or GUARD."""
+        """Output-off behavior, read back as HIMP, NORM, ZERO, or GUAR."""
         return self._get("output_off_mode")
 
     @output_off_mode.setter

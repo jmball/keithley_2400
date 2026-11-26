@@ -1550,33 +1550,44 @@ class keithley2400:
         self._write_bool(":OUTP:STAT", value)
 
     @property
-    def output_enable(self) -> bool:
-        """Whether the external output-enable input is permitted to enable output.
+    def output_enable_interlock_enabled(self) -> bool:
+        """Whether the external output-enable interlock is enabled.
 
-        Uses the IENABle path in the detailed command reference; the summary table
-        gives a different spelling. This path has not been hardware-verified.
+        When enabled, the source can be turned on only while the rear-panel output
+        enable line is at logic low. Uses the :OUTPut:ENABle path from the command
+        summary tables; a model 2401 rejects the IENABle spelling given in the
+        detailed command reference.
         """
-        return self._query_bool(":OUTP:IENAB:STAT?")
+        return self._query_bool(":OUTP:ENAB:STAT?")
 
-    @output_enable.setter
-    def output_enable(self, value: bool) -> None:
-        """Set whether the external output-enable input is active."""
-        self._write_bool(":OUTP:IENAB:STAT", value)
+    @output_enable_interlock_enabled.setter
+    def output_enable_interlock_enabled(self, value: bool) -> None:
+        """Enable or disable the external output-enable interlock."""
+        self._write_bool(":OUTP:ENAB:STAT", value)
 
     @property
-    def output_enable_tripped(self) -> bool:
-        """Whether the output-enable input prevents operation (device replies 0)."""
+    def output_enable_interlock_tripped(self) -> bool:
+        """Whether the output-enable line is at logic high, preventing output.
+
+        Reports the line level whether or not the interlock is enabled.
+        """
         return not self._query_bool(":OUTP:ENAB:TRIP?")
 
     @property
     def output_off_mode(self) -> str:
-        """Output-off behavior: HIMP, NORMAL, ZERO, or GUARD."""
+        """Output-off behavior, read back as HIMP, NORM, ZERO, or GUAR.
+
+        Setting accepts these short forms or HIMPEDANCE, NORMAL, ZERO, or GUARD.
+        HIMP is sent as HIMPEDANCE because a model 2401 rejects the short form.
+        """
         return self._query(":OUTP:SMOD?").upper()
 
     @output_off_mode.setter
     def output_off_mode(self, value: str) -> None:
         """Set output off mode."""
         value = value.upper()
+        if value == "HIMP":
+            value = "HIMPEDANCE"
         self._write(f":OUTP:SMOD {value}")
 
     @property

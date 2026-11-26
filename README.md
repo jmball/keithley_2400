@@ -28,7 +28,11 @@ uv run python examples/timeouts.py TCPIP0::adapter-host::4001::SOCKET --read-ter
 
 Each script's docstring explains its connection options; use `--help` to list
 them. Serial and adapter termination settings must match the instrument.
-Physical instruments and Ethernet adapters have not been tested.
+The shared contract tests have passed on a Model 2401 over RS-232 through a
+serial-to-Ethernet adapter. Other models, GPIB, and direct serial connections
+have not been tested. Through that adapter, commands sent on a new TCP
+connection were intermittently corrupted after repeated reconnects; keep one
+connection open rather than reconnecting frequently.
 
 ## Virtual instrument
 
@@ -65,6 +69,17 @@ uv run --locked ty check --error-on-warning
 uv run --locked ruff check .
 uv run --locked ruff format --check .
 uv run --locked pytest -q
+```
+
+The shared contract tests use the virtual instrument by default. To run them
+on hardware, supply the connection settings. Tests that reset the instrument and
+briefly enable the output (at most 0.5 V with 105 µA compliance) also require
+`--allow-state-changes`:
+
+```sh
+uv run --locked pytest tests/test_contract.py tests/test_contract_state.py \
+    --resource-name TCPIP0::adapter-host::4000::SOCKET \
+    --read-termination CRLF --write-termination CR --allow-state-changes
 ```
 
 Use `uv run ruff format .` for formatting and `uv run ruff check --fix .`
