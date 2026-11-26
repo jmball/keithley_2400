@@ -82,5 +82,11 @@ uv run --locked pytest tests/test_contract.py tests/test_contract_state.py \
     --read-termination CRLF --write-termination CR --allow-state-changes
 ```
 
+Tests that need an optional capability, such as digital output lines (absent
+on the Model 2401), pulse mode, or the contact-check option, are marked with
+`@pytest.mark.requires(...)`. They are skipped when the identity and options
+reported by the instrument show the capability is missing. The capabilities
+are listed in `tests/features.py`.
+
 Use `uv run ruff format .` for formatting and `uv run ruff check --fix .`
 for safe lint fixes. Configuration lives in `pyproject.toml`.

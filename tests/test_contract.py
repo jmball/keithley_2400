@@ -1,6 +1,9 @@
 """Read-only shared contract checks for virtual and opt-in hardware drivers."""
 
+import pytest
+
 from keithley2400 import keithley2400, virtual_keithley2400
+from tests.features import supported_features
 
 
 def test_connection_identity_and_output_state(
@@ -52,3 +55,41 @@ def test_source_voltage_limits_and_timeout_round_trip(
         assert instrument.timeout_ms == previous_timeout + 1
     finally:
         instrument.timeout_ms = previous_timeout
+
+
+def test_text_and_flag_getters_return_python_values(
+    instrument: keithley2400 | virtual_keithley2400,
+) -> None:
+    assert isinstance(instrument.auto_zero, bool)
+    options = instrument.options
+    assert isinstance(options, tuple)
+    assert all(isinstance(option, str) and option != "0" for option in options)
+    assert all(":DC" not in name for name in instrument.configured_measurement)
+    catalog = instrument.math_catalog
+    assert catalog[:4] == ("POWER", "OFFCOMPOHM", "VOLTCOEF", "VARALPHA")
+    assert catalog[-1] == "%DEV"
+    assert instrument.math_name in catalog
+    assert not instrument.math_name.startswith('"')
+    units = instrument.math_units
+    assert not units.startswith('"') and units == units.rstrip(" ")
+    for text in (instrument.display_top_text, instrument.display_bottom_text):
+        assert not text.startswith('"')
+    top, bottom = (
+        instrument.display_top_attributes,
+        instrument.display_bottom_attributes,
+    )
+    assert len(top) == 20 and len(bottom) == 32
+    assert all(isinstance(flag, bool) for flag in top + bottom)
+
+
+@pytest.mark.parametrize(
+    "model,options,expected",
+    [
+        ("2400", (), {"digital_output"}),
+        ("2401", (), set()),
+        ("2430", ("CONTACT-CHECK",), {"digital_output", "pulse", "contact_check"}),
+    ],
+)
+def test_supported_features_follow_model_and_options(model, options, expected):
+    identity = f"KEITHLEY INSTRUMENTS INC.,MODEL {model},1,A01"
+    assert supported_features(identity, options) == expected

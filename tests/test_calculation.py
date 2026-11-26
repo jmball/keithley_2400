@@ -16,8 +16,8 @@ def test_math_expression_catalog_state_and_data_contracts():
             ":CALC:DATA:LAT?": "1.25,0.5",
         }
     )
-    assert meter.math_catalog == '"POWER","PER_DEV"'
-    assert meter.math_name == '"PER_DEV"'
+    assert meter.math_catalog == ("POWER", "PER_DEV")
+    assert meter.math_name == "PER_DEV"
     assert meter.math_expression == "(VOLT + CURR)"
     assert meter.math_enabled is True
     assert meter.math_latest == (1.25, 0.5)
@@ -69,12 +69,12 @@ def test_display_format_and_status_register_command_contracts():
     meter = RecordingMeter()
     meter.responses.update(
         {
-            ":DISP:WIND1:ATTR?": "0",
+            ":DISP:WIND1:ATTR?": '"00000000000000000010"',
             ":STAT:OPER:COND?": "#B1010",
             ":STAT:QUES:EVEN?": "16",
         }
     )
-    assert meter.display_top_attributes == "0"
+    assert meter.display_top_attributes == (False,) * 18 + (True, False)
     assert meter.operation_status_condition == 10
     assert meter.read_questionable_status_event() == 16
     meter.display_bottom_text = "Ready"
@@ -106,3 +106,40 @@ def test_indexed_limit_parameter_default_is_a_single_query():
     assert meter.get_limit_test_upper_default(5) == 1
     assert meter.queries == [":CALC2:LIM5:UPP? DEF"]
     assert meter.writes == []
+
+
+def test_text_responses_from_a_model_2401_are_unquoted_and_typed():
+    # Responses recorded from a model 2401 after *RST.
+    meter = RecordingMeter(
+        {
+            "*OPT?": "0",
+            ":CONF?": '"CURR:DC"',
+            ":CALC:MATH:CAT?": '"POWER","OFFCOMPOHM","VOLTCOEF","VARALPHA","%DEV"',
+            ":CALC:MATH:UNIT?": '"W  "',
+            ":DISP:WIND1:TEXT:DATA?": '"HI"',
+            ":DISP:WIND2:DATA?": '"Vsrc:+00.0000 V  Cmpl:105.000 \x10A"',
+            ":SYST:AZER:STAT?": "1",
+        }
+    )
+    assert meter.options == ()
+    assert meter.configured_measurement == ("CURR",)
+    assert meter.math_catalog[-1] == "%DEV"
+    assert meter.math_units == "W"
+    assert meter.display_top_text == "HI"
+    assert meter.display_bottom_data == "Vsrc:+00.0000 V  Cmpl:105.000 \x10A"
+    assert meter.auto_zero is True
+
+
+def test_options_and_quoted_text_parsing():
+    meter = RecordingMeter(
+        {"*OPT?": "CONTACT-CHECK", ":DISP:WIND1:TEXT:DATA?": '"say ""hi"""'}
+    )
+    assert meter.options == ("CONTACT-CHECK",)
+    assert meter.display_top_text == 'say "hi"'
+
+
+def test_auto_zero_commands():
+    meter = RecordingMeter()
+    meter.auto_zero = False
+    meter.auto_zero_once()
+    assert meter.writes == [":SYST:AZER:STAT OFF", ":SYST:AZER:STAT ONCE"]

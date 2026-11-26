@@ -6,6 +6,7 @@ import pytest
 import pyvisa
 
 from keithley2400 import keithley2400, virtual_keithley2400
+from tests.features import FEATURES, supported_features
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -24,6 +25,32 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         action="store_true",
         help="allow hardware tests that reset settings and briefly enable output",
     )
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Register the feature marker."""
+    config.addinivalue_line(
+        "markers",
+        "requires(*features): skip unless the instrument supports every feature "
+        f"({', '.join(FEATURES)})",
+    )
+
+
+@pytest.fixture(autouse=True)
+def _skip_unsupported_features(request: pytest.FixtureRequest) -> None:
+    """Skip a marked test before setup when the instrument lacks a feature."""
+    marker = request.node.get_closest_marker("requires")
+    if marker is None:
+        return
+    unknown = set(marker.args) - FEATURES.keys()
+    if unknown or not marker.args:
+        pytest.fail(f"unknown or missing required features: {sorted(unknown)}")
+    instrument = request.getfixturevalue("instrument")
+    missing = set(marker.args) - supported_features(
+        instrument.identity, instrument.options
+    )
+    if missing:
+        pytest.skip(f"instrument does not support: {', '.join(sorted(missing))}")
 
 
 TERMINATIONS = {"CR": "\r", "LF": "\n", "CRLF": "\r\n", "LFCR": "\n\r"}

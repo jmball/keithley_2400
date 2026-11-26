@@ -121,3 +121,32 @@ def test_voltage_sweep_sources_each_step(reset_instrument: Instrument) -> None:
         assert voltages == pytest.approx(
             (0.0, OUTPUT_VOLTAGE / 2, OUTPUT_VOLTAGE), abs=0.01
         )
+
+
+def test_auto_zero_round_trip_and_single_update(reset_instrument: Instrument) -> None:
+    smu = reset_instrument
+    assert smu.auto_zero is True
+    smu.auto_zero = False
+    assert smu.auto_zero is False
+    smu.auto_zero = True
+    smu.auto_zero_once()
+    assert smu.auto_zero is False
+
+
+def test_display_message_text_round_trip(reset_instrument: Instrument) -> None:
+    # *RST does not change user display messages, so restore the original text.
+    smu = reset_instrument
+    original = smu.display_top_text
+    try:
+        smu.display_top_text = 'Say "hi"'
+        assert smu.display_top_text == 'Say "hi"'
+    finally:
+        smu.display_top_text = original
+
+
+@pytest.mark.requires("digital_output")
+def test_digital_output_bit_size_round_trip(reset_instrument: Instrument) -> None:
+    smu = reset_instrument
+    for size in (3, 4):
+        smu.digital_bit_size = size
+        assert smu.digital_bit_size == size

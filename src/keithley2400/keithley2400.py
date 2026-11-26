@@ -372,9 +372,16 @@ class keithley2400:
         return self._query("*IDN?")
 
     @property
-    def options(self) -> str:
-        """Installed instrument option identifiers returned by *OPT?."""
-        return self._query("*OPT?")
+    def options(self) -> tuple[str, ...]:
+        """Installed option identifiers from *OPT?, such as CONTACT-CHECK.
+
+        Returns
+        -------
+        tuple[str, ...]
+            Option identifiers; empty when the instrument reports no options (0).
+        """
+        response = self._query("*OPT?")
+        return () if response == "0" else self._tokens(response)
 
     def clear_status(self) -> None:
         """Clear status event registers and the instrument error queue with *CLS."""
@@ -567,14 +574,21 @@ class keithley2400:
         self._write_bool(":SYST:BEEP:STAT", enabled)
 
     @property
-    def auto_zero(self) -> str:
-        """Auto-zero state: ON, OFF, or ONCE; ONCE performs an immediate update."""
-        return self._query(":SYST:AZER:STAT?").upper()
+    def auto_zero(self) -> bool:
+        """Whether automatic zero and reference updates are enabled."""
+        return self._query_bool(":SYST:AZER:STAT?")
 
     @auto_zero.setter
-    def auto_zero(self, state: str) -> None:
-        """Set auto zero."""
-        self._write(f":SYST:AZER:STAT {state}")
+    def auto_zero(self, enabled: bool) -> None:
+        """Enable or disable automatic zero and reference updates."""
+        self._write_bool(":SYST:AZER:STAT", enabled)
+
+    def auto_zero_once(self) -> None:
+        """Force one immediate zero and reference update.
+
+        Auto zero then reads as disabled, as observed on a model 2401.
+        """
+        self._write(":SYST:AZER:STAT ONCE")
 
     @property
     def nplc_caching(self) -> bool:
@@ -1105,9 +1119,11 @@ class keithley2400:
         Returns
         -------
         tuple[str, ...]
-            Value decoded from the instrument response.
+            Function names such as CURR or VOLT, without the :DC suffix.
         """
-        return self._tokens(self._query(":CONF?"))
+        return tuple(
+            token.removesuffix(":DC") for token in self._tokens(self._query(":CONF?"))
+        )
 
     @property
     def sense_data_latest(self) -> tuple[float, ...]:
@@ -1117,6 +1133,13 @@ class keithley2400:
         overflow and unavailable-value sentinels are preserved.
         """
         return self._query_floats(":SENS:DATA?")
+
+    @staticmethod
+    def _unquote(value: str) -> str:
+        """Remove SCPI string-response quotes and undouble embedded quotes."""
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            return value[1:-1].replace(value[0] * 2, value[0])
+        return value
 
     @staticmethod
     def _tokens(value: str) -> tuple[str, ...]:
@@ -2951,9 +2974,21 @@ class keithley2400:
     # Math
 
     @property
-    def math_catalog(self) -> str:
-        """Raw catalog of built-in and user-defined math expression names."""
-        return self._query(":CALC:MATH:CAT?")
+    def math_catalog(self) -> tuple[str, ...]:
+        """Built-in and user-defined math expression names.
+
+        The instrument lists %DEV, which is available only from the front panel.
+
+        Returns
+        -------
+        tuple[str, ...]
+            Names in instrument catalog order.
+        """
+        return tuple(
+            self._unquote(name.strip())
+            for name in self._query(":CALC:MATH:CAT?").split(",")
+            if name.strip()
+        )
 
     @property
     def math_name(self) -> str:
@@ -2962,7 +2997,7 @@ class keithley2400:
         Built-in names include POWER, OFFCOMPOHM, VOLTCOEF, and VARALPHA. Custom
         names may contain up to 10 ASCII characters.
         """
-        return self._query(":CALC:MATH:NAME?")
+        return self._unquote(self._query(":CALC:MATH:NAME?"))
 
     @math_name.setter
     def math_name(self, value: str) -> None:
@@ -2983,8 +3018,8 @@ class keithley2400:
 
     @property
     def math_units(self) -> str:
-        """User-defined math-result unit label, up to three ASCII characters."""
-        return self._query(":CALC:MATH:UNIT?").strip('"')
+        """Math-result unit label, up to three characters, without padding."""
+        return self._unquote(self._query(":CALC:MATH:UNIT?")).rstrip(" ")
 
     @math_units.setter
     def math_units(self, value: str) -> None:
@@ -3171,7 +3206,7 @@ class keithley2400:
     @property
     def display_top_text(self) -> str:
         """User message for the top display line, up to 20 characters."""
-        return self._query(":DISP:WIND1:TEXT:DATA?")
+        return self._unquote(self._query(":DISP:WIND1:TEXT:DATA?"))
 
     @display_top_text.setter
     def display_top_text(self, value: str) -> None:
@@ -3190,20 +3225,22 @@ class keithley2400:
 
     @property
     def display_top_data(self) -> str:
-        """Raw text currently shown on the top display line."""
-        return self._query(":DISP:WIND1:DATA?")
+        """Text currently shown on the top display line, including padding."""
+        return self._unquote(self._query(":DISP:WIND1:DATA?"))
 
     @property
-    def display_top_attributes(self) -> str:
-        """Raw annunciator/attribute information for the top display line."""
-        return self._query(":DISP:WIND1:ATTR?")
+    def display_top_attributes(self) -> tuple[bool, ...]:
+        """Whether each of the 20 top-line character positions is blinking."""
+        return tuple(
+            flag == "1" for flag in self._unquote(self._query(":DISP:WIND1:ATTR?"))
+        )
 
     # Display bottom
 
     @property
     def display_bottom_text(self) -> str:
         """User message for the bottom display line, up to 32 characters."""
-        return self._query(":DISP:WIND2:TEXT:DATA?")
+        return self._unquote(self._query(":DISP:WIND2:TEXT:DATA?"))
 
     @display_bottom_text.setter
     def display_bottom_text(self, value: str) -> None:
@@ -3222,13 +3259,15 @@ class keithley2400:
 
     @property
     def display_bottom_data(self) -> str:
-        """Raw text currently shown on the bottom display line."""
-        return self._query(":DISP:WIND2:DATA?")
+        """Text currently shown on the bottom display line, including padding."""
+        return self._unquote(self._query(":DISP:WIND2:DATA?"))
 
     @property
-    def display_bottom_attributes(self) -> str:
-        """Raw annunciator/attribute information for the bottom display line."""
-        return self._query(":DISP:WIND2:ATTR?")
+    def display_bottom_attributes(self) -> tuple[bool, ...]:
+        """Whether each of the 32 bottom-line character positions is blinking."""
+        return tuple(
+            flag == "1" for flag in self._unquote(self._query(":DISP:WIND2:ATTR?"))
+        )
 
     # Measurement status
 

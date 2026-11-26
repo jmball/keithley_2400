@@ -214,7 +214,7 @@ def test_custom_math_scalar_and_vector_expressions_use_recorded_values() -> None
     assert meter.math_data == (2,)
     assert meter.math_latest == (2,)
     meter.delete_math_expression("DOUBLE")
-    assert '"DOUBLE"' not in meter.math_catalog
+    assert "DOUBLE" not in meter.math_catalog
 
 
 def test_numeric_limit_failure_is_latched_until_cleared() -> None:

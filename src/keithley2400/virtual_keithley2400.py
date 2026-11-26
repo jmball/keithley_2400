@@ -93,7 +93,6 @@ _ENUMS = {
     "status_register_format": ("ASCii", "HEXadecimal", "OCTal", "BINary"),
     "digital_format": ("ASCii", "HEXadecimal", "OCTal", "BINary"),
     "guard_mode": ("OHMS", "CABLE"),
-    "auto_zero": ("ON", "OFF", "ONCE"),
     "range_change_mode": ("SINGle", "MULTiple"),
     "trace_feed": ("SENSe", "SENSe1", "CALCulate", "CALCulate1", "CALCulate2"),
     "trace_control": ("NEXT", "NEVer"),
@@ -146,7 +145,7 @@ _DEFAULTS = {
     "auto_output_off": False,
     "auto_output_off_mode": "ALW",
     "auto_reset_timestamp": False,
-    "auto_zero": "ON",
+    "auto_zero": True,
     "average_count": 10,
     "average_type": "REP",
     "averaging_enabled": False,
@@ -545,6 +544,9 @@ class virtual_keithley2400:
                     raise ValueError("display message too long")
             elif name == "math_name":
                 value = str(value).upper()
+                if value == "%DEV":
+                    self._error(-151, "Invalid string data")
+                    return
                 if not value or len(value) > 10 or not value.isascii():
                     raise ValueError("invalid expression name")
                 if value not in self._math:
@@ -1105,10 +1107,10 @@ class virtual_keithley2400:
         return "KEITHLEY INSTRUMENTS INC.,MODEL 2400,VIRTUAL,0"
 
     @property
-    def options(self) -> str:
-        """Virtual option identification; returns "0" without probing hardware."""
+    def options(self) -> tuple[str, ...]:
+        """Installed option identifiers; the virtual instrument has none."""
         self._verify_connected()
-        return "0"
+        return ()
 
     def clear_status(self) -> None:
         """Clear status event registers and the instrument error queue with *CLS."""
@@ -1346,14 +1348,18 @@ class virtual_keithley2400:
         self._set("beeper_enabled", enabled)
 
     @property
-    def auto_zero(self) -> str:
-        """Auto-zero state: ON, OFF, or ONCE; ONCE performs an immediate update."""
+    def auto_zero(self) -> bool:
+        """Whether automatic zero and reference updates are enabled."""
         return self._get("auto_zero")
 
     @auto_zero.setter
-    def auto_zero(self, state: str) -> None:
-        """Set auto zero."""
-        self._set("auto_zero", state)
+    def auto_zero(self, enabled: bool) -> None:
+        """Enable or disable automatic zero and reference updates."""
+        self._set("auto_zero", enabled)
+
+    def auto_zero_once(self) -> None:
+        """Force one immediate zero and reference update, disabling auto zero."""
+        self._set("auto_zero", False)
 
     @property
     def nplc_caching(self) -> bool:
@@ -1956,7 +1962,7 @@ class virtual_keithley2400:
             trigger_delay=0.0,
             math_enabled=False,
             trace_control="NEV",
-            auto_zero="ON",
+            auto_zero=True,
             output_enabled=True,
         )
         self._pending = False
@@ -1969,7 +1975,7 @@ class virtual_keithley2400:
         Returns
         -------
         tuple[str, ...]
-            Value decoded from the instrument response.
+            Function names such as CURR or VOLT, without the :DC suffix.
         """
         self._verify_connected()
         return self._sense
@@ -3809,10 +3815,18 @@ class virtual_keithley2400:
         return self._limit("display_digits", 2)
 
     @property
-    def math_catalog(self) -> str:
-        """Raw catalog of built-in and user-defined math expression names."""
+    def math_catalog(self) -> tuple[str, ...]:
+        """Built-in and user-defined math expression names.
+
+        The catalog ends with %DEV, which is available only from the front panel.
+
+        Returns
+        -------
+        tuple[str, ...]
+            Names in instrument catalog order.
+        """
         self._verify_connected()
-        return ",".join(f'"{name}"' for name in self._math)
+        return (*self._math, "%DEV")
 
     @property
     def math_name(self) -> str:
@@ -3896,7 +3910,7 @@ class virtual_keithley2400:
 
     @property
     def math_units(self) -> str:
-        """User-defined math-result unit label, up to three ASCII characters."""
+        """Math-result unit label, up to three characters, without padding."""
         self._verify_connected()
         return self._math[self._settings["math_name"]][1]
 
@@ -4145,7 +4159,7 @@ class virtual_keithley2400:
 
     @property
     def display_top_data(self) -> str:
-        """Raw text currently shown on the top display line."""
+        """Text currently shown on the top display line, including padding."""
         self._verify_connected()
         return (
             self.display_top_text
@@ -4156,10 +4170,10 @@ class virtual_keithley2400:
         )
 
     @property
-    def display_top_attributes(self) -> str:
-        """Raw annunciator/attribute information for the top display line."""
+    def display_top_attributes(self) -> tuple[bool, ...]:
+        """Whether each of the 20 top-line character positions is blinking."""
         self._verify_connected()
-        return "0"
+        return (False,) * 20
 
     @property
     def display_bottom_text(self) -> str:
@@ -4183,7 +4197,7 @@ class virtual_keithley2400:
 
     @property
     def display_bottom_data(self) -> str:
-        """Raw text currently shown on the bottom display line."""
+        """Text currently shown on the bottom display line, including padding."""
         self._verify_connected()
         return (
             self.display_bottom_text
@@ -4194,10 +4208,10 @@ class virtual_keithley2400:
         )
 
     @property
-    def display_bottom_attributes(self) -> str:
-        """Raw annunciator/attribute information for the bottom display line."""
+    def display_bottom_attributes(self) -> tuple[bool, ...]:
+        """Whether each of the 32 bottom-line character positions is blinking."""
         self._verify_connected()
-        return "0"
+        return (False,) * 32
 
     @property
     def measurement_status_enable(self) -> int:
